@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/opendns/lemming/master/docs/images/odns_lemming.png" width="100" height="100">
+<img src="https://raw.githubusercontent.com/opendns/lemming/master/docs/images/odns_lemming.png" width="68" height="150">
 
 # lemming
 
