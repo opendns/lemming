@@ -43,13 +43,23 @@ func validateInput() {
 	}
 }
 
-func initializeDB() *sql.DB {
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", USER, PASSWORD, *dbPtr))
-	if err != nil {
-		log.Fatal(err)
+func initializeDB(inputParams ...string) *sql.DB {
+	// For testing purposes only
+	if len(inputParams) != 0 {
+		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", inputParams[0], inputParams[1], inputParams[2]))
+		if err != nil {
+			log.Fatal(err)
+		}
+		return db
+	} else {
+		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", USER, PASSWORD, *dbPtr))
+		if err != nil {
+			log.Fatal(err)
+		}
+		return db
 	}
-	return db
 }
+
 func prepareStatement(db *sql.DB, operationPtr string, tablePtr string, conditionPtr string) *sql.Rows {
 	stmtOut, err := db.Prepare(fmt.Sprintf("%s FROM %s %s", operationPtr, tablePtr, conditionPtr))
 	if err != nil {
@@ -63,7 +73,7 @@ func prepareStatement(db *sql.DB, operationPtr string, tablePtr string, conditio
 	return rows
 }
 
-func processData(rows *sql.Rows) {
+func processData(rows *sql.Rows) bool {
 	for rows.Next() {
 		err := rows.Scan(&deptNo, &deptName)
 		if err != nil {
@@ -74,6 +84,9 @@ func processData(rows *sql.Rows) {
 	err := rows.Err()
 	if err != nil {
 		log.Fatal(err)
+		return false
+	} else {
+		return true
 	}
 }
 
