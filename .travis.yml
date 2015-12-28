@@ -3,7 +3,5 @@ language: go
 go:
     - 1.2
 
-go_import_path: github.com/go-sql-driver/mysql
-
 services:
     - mysql
