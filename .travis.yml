@@ -4,7 +4,7 @@ go:
     - 1.2
 
 before_script:
-    - echo "USE mysql;\nUPDATE user SET password=PASSWORD('password') WHERE user='travis';\nFLUSH PRIVILEGES;\n" | mysql -u travis
+    - echo "USE mysql;\nUPDATE user SET password=PASSWORD('password') WHERE user='travis';\nFLUSH PRIVILEGES;\n"
 
 script:
     - ./lomax/scripts/mysql_setup.sh
