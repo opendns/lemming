@@ -3,5 +3,8 @@ language: go
 go:
     - 1.2
 
+script:
+    - lomax/lib/mysql_setup.sh
+
 services:
     - mysql
