@@ -5,6 +5,7 @@ go:
 
 script:
     - ./lomax/scripts/mysql_setup.sh
+    - go test -v ./...
 
 services:
     - mysql
