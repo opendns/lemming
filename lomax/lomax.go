@@ -5,6 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"reflect"
+	"runtime"
+	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -32,6 +35,39 @@ var countPtr = flag.Int("count", 1, "Repeat: Number of times to repeat the bench
 var dbPtr = flag.String("db", "", "Database: Name of the DB to perform operations on.")
 var tablePtr = flag.String("table", "", "Table: Name of the table to perform operations on.")
 var conditionPtr = flag.String("condition", "", "Condition: Constraint on the transaction.")
+
+func GetFunctionName(i interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+}
+
+func Benchmark_initializeDB(bench *testing.B) {
+	for iter := 0; iter < bench.N; iter++ {
+		db := initializeDB()
+		db.Close()
+	}
+}
+
+func Benchmark_prepareStatement(bench *testing.B) {
+	db := initializeDB()
+	defer db.Close()
+
+	for iter := 0; iter < bench.N; iter++ {
+		rows := prepareStatement(db, *operationPtr, *tablePtr, *conditionPtr)
+		rows.Close()
+	}
+}
+
+func Benchmark_processData(bench *testing.B) {
+	db := initializeDB()
+	defer db.Close()
+
+	rows := prepareStatement(db, *operationPtr, *tablePtr, *conditionPtr)
+	defer rows.Close()
+
+	for iter := 0; iter < bench.N; iter++ {
+		_ = processData(rows)
+	}
+}
 
 func validateInput() {
 	if *tablePtr == "" {
@@ -85,13 +121,14 @@ func processData(rows *sql.Rows, inputParams ...string) bool {
 			if err != nil {
 				log.Fatal(err)
 			}
-			log.Println(empNo, birthDate, firstName, lastName, gender, hireDate)
+			// log.Println(empNo, birthDate, firstName, lastName, gender, hireDate)
 		case "departments":
 			err := rows.Scan(&deptNo, &deptName)
 			if err != nil {
 				log.Fatal(err)
 			}
-			log.Println(deptNo, deptName)
+			// log.Println(deptNo, deptName)
+
 		default:
 			log.Fatal("Invalid table specified, please check the --table option.")
 			return false
@@ -109,16 +146,21 @@ func processData(rows *sql.Rows, inputParams ...string) bool {
 	return false
 }
 
+func runBenchmarks() {
+	br := testing.Benchmark(Benchmark_initializeDB)
+	fmt.Println(fmt.Sprintf("[%s]: %s", GetFunctionName(Benchmark_initializeDB), br))
+
+	br = testing.Benchmark(Benchmark_prepareStatement)
+	fmt.Println(fmt.Sprintf("[%s]: %s", GetFunctionName(Benchmark_prepareStatement), br))
+
+	br = testing.Benchmark(Benchmark_processData)
+	fmt.Println(fmt.Sprintf("[%s]: %s", GetFunctionName(Benchmark_processData), br))
+}
+
 func main() {
 	flag.Parse()
 
 	validateInput()
 
-	db := initializeDB()
-	defer db.Close()
-
-	rows := prepareStatement(db, *operationPtr, *tablePtr, *conditionPtr)
-	defer rows.Close()
-
-	processData(rows)
+	runBenchmarks()
 }
