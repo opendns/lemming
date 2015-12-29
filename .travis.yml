@@ -3,6 +3,9 @@ language: go
 go:
     - 1.2
 
+before_script:
+    - echo "USE mysql;\nUPDATE user SET password=PASSWORD('password') WHERE user='travis';\nFLUSH PRIVILEGES;\n" | mysql -u travis
+
 script:
     - ./lomax/scripts/mysql_setup.sh
     - go test -v ./...
