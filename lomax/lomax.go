@@ -12,7 +12,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-const USER string = "simar"
+const USER string = "root"
 const PASSWORD string = "password"
 
 var (
