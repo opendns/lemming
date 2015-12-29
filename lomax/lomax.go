@@ -44,7 +44,7 @@ func validateInput() {
 }
 
 func initializeDB(inputParams ...string) *sql.DB {
-	// For testing purposes only
+	// lomax_test.go uses custom command function name for testing purposes only
 	if len(inputParams) != 0 {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", inputParams[0], inputParams[1], inputParams[2]))
 		if err != nil {
@@ -73,21 +73,40 @@ func prepareStatement(db *sql.DB, operationPtr string, tablePtr string, conditio
 	return rows
 }
 
-func processData(rows *sql.Rows) bool {
+func processData(rows *sql.Rows, inputParams ...string) bool {
+	if inputParams != nil {
+		*tablePtr = inputParams[0]
+	}
+
 	for rows.Next() {
-		err := rows.Scan(&deptNo, &deptName)
+		switch *tablePtr {
+		case "employees":
+			err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Println(empNo, birthDate, firstName, lastName, gender, hireDate)
+		case "departments":
+			err := rows.Scan(&deptNo, &deptName)
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Println(deptNo, deptName)
+		default:
+			log.Fatal("Invalid table specified, please check the --table option.")
+			return false
+		}
+		err := rows.Err()
 		if err != nil {
 			log.Fatal(err)
+			return false
 		}
-		log.Println(deptNo, deptName)
 	}
-	err := rows.Err()
-	if err != nil {
-		log.Fatal(err)
-		return false
-	} else {
+	// Only reaches here if rows is empty.
+	if rows != nil {
 		return true
 	}
+	return false
 }
 
 func main() {

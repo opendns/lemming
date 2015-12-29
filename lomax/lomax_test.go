@@ -14,12 +14,12 @@ func TestTravis(t *testing.T) {
 		testConditionInput string
 		outputWanted       bool
 	}{
-		{"departments", "employees", "SELECT *", "", true},
+		{"employees", "employees", "SELECT *", "LIMIT 2", true},
 	}
 	for _, c := range cases {
 		db := initializeDB(USER, PASSWORD, c.testDBInput)
 		returnedRows := prepareStatement(db, c.testOperationInput, c.testTableInput, c.testConditionInput)
-		returnedOutput := processData(returnedRows)
+		returnedOutput := processData(returnedRows, c.testTableInput)
 		if returnedOutput != c.outputWanted {
 			t.Errorf("prepareStatement(%q, %q, %q, %q) returned %q, want %q", c.testDBInput, c.testOperationInput, c.testTableInput, c.testConditionInput, returnedOutput, c.outputWanted)
 		}
