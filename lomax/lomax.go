@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"reflect"
 	"runtime"
@@ -12,8 +14,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-const USER string = "root"
-const PASSWORD string = "password"
+var USER, PASSWORD string
 
 var (
 	deptNo    string
@@ -35,6 +36,7 @@ var countPtr = flag.Int("count", 1, "Repeat: Number of times to repeat the bench
 var dbPtr = flag.String("db", "", "Database: Name of the DB to perform operations on.")
 var tablePtr = flag.String("table", "", "Table: Name of the table to perform operations on.")
 var conditionPtr = flag.String("condition", "", "Condition: Constraint on the transaction.")
+var jsonConfig = flag.String("config", "", "Configuration: Input a predefined configuration file.")
 
 func GetFunctionName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
@@ -69,6 +71,18 @@ func Benchmark_processData(bench *testing.B) {
 	}
 }
 
+func configParse() {
+	file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", *jsonConfig))
+	if err != nil {
+		log.Fatal(fmt.Sprintf("File IO error: %s\n", err.Error()))
+	}
+	var config map[string]interface{}
+	json.Unmarshal(file, &config)
+
+	USER = config["user"].(string)
+	PASSWORD = config["pass"].(string)
+}
+
 func validateInput() {
 	if *tablePtr == "" {
 		log.Fatal("Please specify a MySQL table using the --table option.")
@@ -76,6 +90,8 @@ func validateInput() {
 		log.Fatal("Please specify a MySQL database using the --database option.")
 	} else if *operationPtr == "" {
 		log.Fatal("Please specify a MySQL operation using the --operator option.")
+	} else if *jsonConfig == "" {
+		log.Fatal("Please specify a configuration file using the --config option.")
 	}
 }
 
@@ -161,6 +177,8 @@ func main() {
 	flag.Parse()
 
 	validateInput()
+
+	configParse()
 
 	runBenchmarks()
 }
