@@ -1,21 +1,13 @@
 package log_test
 
 import (
-	"flag"
 	"github.com/opendns/lemming/lib/log"
 	"io"
 	"math/rand"
 	"os"
 	"strings"
 	"testing"
-	"time"
 )
-
-func TestMain(m *testing.M) {
-	rand.Seed(time.Now().UnixNano())
-	flag.Parse()
-	os.Exit(m.Run())
-}
 
 func TestStdout(t *testing.T) {
 	log.Init()
