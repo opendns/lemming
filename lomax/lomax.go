@@ -71,13 +71,22 @@ func Benchmark_processData(bench *testing.B) {
 	}
 }
 
-func configParse() {
-	file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", *jsonConfig))
-	if err != nil {
-		log.Fatal(fmt.Sprintf("File IO error: %s\n", err.Error()))
-	}
+func configParse(inputFile ...string) {
 	var config map[string]interface{}
-	json.Unmarshal(file, &config)
+
+	if inputFile != nil {
+		file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", inputFile[0]))
+		if err != nil {
+			log.Fatal(fmt.Sprintf("file io error: %s\n", err))
+		}
+		json.Unmarshal(file, &config)
+	} else {
+		file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", *jsonConfig))
+		if err != nil {
+			log.Fatal(fmt.Sprintf("file io error: %s\n", err))
+		}
+		json.Unmarshal(file, &config)
+	}
 
 	USER = config["user"].(string)
 	PASSWORD = config["pass"].(string)
