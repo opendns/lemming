@@ -26,3 +26,6 @@ _testmain.go
 # Editor trash
 *.swp
 *~
+
+# Terraform
+*.tfstate*
