@@ -173,13 +173,13 @@ func processData(rows *sql.Rows, inputParams ...string) bool {
 
 func runBenchmarks() {
 	br := testing.Benchmark(Benchmark_initializeDB)
-	fmt.Println(fmt.Sprintf("[%s]: %s", GetFunctionName(Benchmark_initializeDB), br))
+	fmt.Println(fmt.Sprintf("[%s    ]: Time Taken: %s 	Ops: %s", GetFunctionName(Benchmark_initializeDB), br.T, br))
 
 	br = testing.Benchmark(Benchmark_prepareStatement)
-	fmt.Println(fmt.Sprintf("[%s]: %s", GetFunctionName(Benchmark_prepareStatement), br))
+	fmt.Println(fmt.Sprintf("[%s]: Time Taken: %s 	Ops: %s", GetFunctionName(Benchmark_prepareStatement), br.T, br))
 
 	br = testing.Benchmark(Benchmark_processData)
-	fmt.Println(fmt.Sprintf("[%s]: %s", GetFunctionName(Benchmark_processData), br))
+	fmt.Println(fmt.Sprintf("[%s     ]: Time Taken: %s 	Ops: %s", GetFunctionName(Benchmark_processData), br.T, br))
 }
 
 func main() {
