@@ -6,12 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"reflect"
 	"runtime"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/opendns/lemming/lib/log"
 )
 
 var USER, PASSWORD string
@@ -77,13 +77,13 @@ func configParse(inputFile ...string) {
 	if inputFile != nil {
 		file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", inputFile[0]))
 		if err != nil {
-			log.Fatal(fmt.Sprintf("file io error: %s\n", err))
+			log.Error(fmt.Sprintf("file io error: %s\n", err.Error()))
 		}
 		json.Unmarshal(file, &config)
 	} else {
 		file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", *jsonConfig))
 		if err != nil {
-			log.Fatal(fmt.Sprintf("file io error: %s\n", err))
+			log.Error(fmt.Sprintf("file io error: %s\n", err.Error()))
 		}
 		json.Unmarshal(file, &config)
 	}
@@ -94,13 +94,13 @@ func configParse(inputFile ...string) {
 
 func validateInput() {
 	if *tablePtr == "" {
-		log.Fatal("Please specify a MySQL table using the --table option.")
+		log.Error("Please specify a MySQL table using the --table option.")
 	} else if *dbPtr == "" {
-		log.Fatal("Please specify a MySQL database using the --database option.")
+		log.Error("Please specify a MySQL database using the --database option.")
 	} else if *operationPtr == "" {
-		log.Fatal("Please specify a MySQL operation using the --operator option.")
+		log.Error("Please specify a MySQL operation using the --operator option.")
 	} else if *jsonConfig == "" {
-		log.Fatal("Please specify a configuration file using the --config option.")
+		log.Error("Please specify a configuration file using the --config option.")
 	}
 }
 
@@ -109,13 +109,13 @@ func initializeDB(inputParams ...string) *sql.DB {
 	if len(inputParams) != 0 {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", inputParams[0], inputParams[1], inputParams[2]))
 		if err != nil {
-			log.Fatal(err)
+			log.Error(err.Error())
 		}
 		return db
 	} else {
 		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", USER, PASSWORD, *dbPtr))
 		if err != nil {
-			log.Fatal(err)
+			log.Error(err.Error())
 		}
 		return db
 	}
@@ -124,11 +124,11 @@ func initializeDB(inputParams ...string) *sql.DB {
 func prepareStatement(db *sql.DB, operationPtr string, tablePtr string, conditionPtr string) *sql.Rows {
 	stmtOut, err := db.Prepare(fmt.Sprintf("%s FROM %s %s", operationPtr, tablePtr, conditionPtr))
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err.Error())
 	}
 	rows, err := stmtOut.Query()
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err.Error())
 	}
 	defer stmtOut.Close()
 	return rows
@@ -144,23 +144,23 @@ func processData(rows *sql.Rows, inputParams ...string) bool {
 		case "employees":
 			err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
 			if err != nil {
-				log.Fatal(err)
+				log.Error(err.Error())
 			}
-			// log.Println(empNo, birthDate, firstName, lastName, gender, hireDate)
+			// log.Debug(strconv.Itoa(empNo), birthDate, firstName, lastName, gender, hireDate)
 		case "departments":
 			err := rows.Scan(&deptNo, &deptName)
 			if err != nil {
-				log.Fatal(err)
+				log.Error(err.Error())
 			}
-			// log.Println(deptNo, deptName)
+			// log.Debug(strconv.Itoa(deptNo), deptName)
 
 		default:
-			log.Fatal("Invalid table specified, please check the --table option.")
+			log.Error("Invalid table specified, please check the --table option.")
 			return false
 		}
 		err := rows.Err()
 		if err != nil {
-			log.Fatal(err)
+			log.Error(err.Error())
 			return false
 		}
 	}
