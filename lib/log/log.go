@@ -4,7 +4,7 @@
 //
 // Example:
 //
-//     import "github.com/opendns/lemming/log"
+//     import "github.com/opendns/lemming/lib/log"
 //
 //     func main() {
 //             log.Info("Starting")
