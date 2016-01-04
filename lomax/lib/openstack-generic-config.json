@@ -1,0 +1,8 @@
+{
+  "name": "openstack",
+  "tier": "generic",
+  "prod": false,
+  "db" : "employees",
+  "user": "root",
+  "pass": "password"
+}
