@@ -14,7 +14,11 @@ import (
 	"github.com/opendns/lemming/lib/log"
 )
 
-var USER, PASSWORD string
+// USER : The MySQL user, passed in through the config file
+var USER string
+
+// PASSWORD : The MySQL user's password, passed in through the config file
+var PASSWORD string
 
 // This schema is only valid for datacharmer/test_db
 // If you would like to use your own, please change accordingly.
@@ -55,18 +59,21 @@ func initPtrs() {
 	}
 }
 
+// GetFunctionName : Returns the name of the passed function
 func GetFunctionName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
-func Benchmark_initializeDB(bench *testing.B) {
+// BenchmarkInitializeDB : Benchmark helper function to benchmark initializeDB()
+func BenchmarkInitializeDB(bench *testing.B) {
 	for iter := 0; iter < bench.N; iter++ {
 		db := initializeDB()
 		db.Close()
 	}
 }
 
-func Benchmark_prepareStatement(bench *testing.B) {
+// BenchmarkPrepareStatement : Benchmark helper function to benchmark prepareStatement()
+func BenchmarkPrepareStatement(bench *testing.B) {
 	db := initializeDB()
 	defer db.Close()
 
@@ -81,7 +88,8 @@ func Benchmark_prepareStatement(bench *testing.B) {
 	}
 }
 
-func Benchmark_processData(bench *testing.B) {
+// BenchmarkProcessData : Benchmark helper function to benchmark processData()
+func BenchmarkProcessData(bench *testing.B) {
 	db := initializeDB()
 	defer db.Close()
 
@@ -100,23 +108,23 @@ func configParse(inputFile ...string) {
 		if err != nil {
 			log.Error(fmt.Sprintf("File IO Error: %s\n", err.Error()))
 		}
-		file_testConfig, err_testConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/%s", inputFile[1]))
-		if err_testConfig != nil {
+		fileTestConfig, errTestConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/%s", inputFile[1]))
+		if errTestConfig != nil {
 			log.Error(fmt.Sprintf("Test config File IO Error: %s\n", err.Error()))
 		}
 		json.Unmarshal(file, &config)
-		json.Unmarshal(file_testConfig, &config)
+		json.Unmarshal(fileTestConfig, &config)
 	} else {
 		file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", *jsonConfig))
 		if err != nil {
 			log.Error(fmt.Sprintf("File IO Error: %s\n", err.Error()))
 		}
-		file_testConfig, err_testConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/%s", *testVectorConfig))
-		if err_testConfig != nil {
+		fileTestConfig, errTestConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/%s", *testVectorConfig))
+		if errTestConfig != nil {
 			log.Error(fmt.Sprintf("Test config File IO Error: %s\n", err.Error()))
 		}
 		json.Unmarshal(file, &config)
-		json.Unmarshal(file_testConfig, &config)
+		json.Unmarshal(fileTestConfig, &config)
 	}
 
 	USER = config["user"].(string)
@@ -143,13 +151,13 @@ func initializeDB(inputParams ...string) *sql.DB {
 			log.Error(err.Error())
 		}
 		return db
-	} else {
-		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", USER, PASSWORD, dbPtr.(string)))
-		if err != nil {
-			log.Error(err.Error())
-		}
-		return db
 	}
+
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", USER, PASSWORD, dbPtr.(string)))
+	if err != nil {
+		log.Error(err.Error())
+	}
+	return db
 }
 
 func prepareStatement(db *sql.DB, operationPtr string, columnsPtr string, tablePtr string, conditionPtr string) *sql.Rows {
@@ -203,14 +211,14 @@ func processData(rows *sql.Rows, inputParams ...string) bool {
 }
 
 func runBenchmarks() {
-	br := testing.Benchmark(Benchmark_initializeDB)
-	fmt.Println(fmt.Sprintf("[%s    ]: Time Taken: %s 	Ops: %s", GetFunctionName(Benchmark_initializeDB), br.T, br))
+	br := testing.Benchmark(BenchmarkInitializeDB)
+	fmt.Println(fmt.Sprintf("[%s    ]: Time Taken: %s 	Ops: %s", GetFunctionName(BenchmarkInitializeDB), br.T, br))
 
-	br = testing.Benchmark(Benchmark_prepareStatement)
-	fmt.Println(fmt.Sprintf("[%s]: Time Taken: %s 	Ops: %s", GetFunctionName(Benchmark_prepareStatement), br.T, br))
+	br = testing.Benchmark(BenchmarkPrepareStatement)
+	fmt.Println(fmt.Sprintf("[%s]: Time Taken: %s 	Ops: %s", GetFunctionName(BenchmarkPrepareStatement), br.T, br))
 
-	br = testing.Benchmark(Benchmark_processData)
-	fmt.Println(fmt.Sprintf("[%s     ]: Time Taken: %s 	Ops: %s", GetFunctionName(Benchmark_processData), br.T, br))
+	br = testing.Benchmark(BenchmarkProcessData)
+	fmt.Println(fmt.Sprintf("[%s     ]: Time Taken: %s 	Ops: %s", GetFunctionName(BenchmarkProcessData), br.T, br))
 }
 
 func main() {
