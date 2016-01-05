@@ -1,0 +1,9 @@
+{
+  "test_name": "[TestVector #1] OpenStack SELECT test",
+  "test_db": "employees",
+  "test_table": "departments",
+  "action": "SELECT",
+  "columns": "*",
+  "condition": "WHERE dept_no > 'd006'",
+  "limit": 2
+}

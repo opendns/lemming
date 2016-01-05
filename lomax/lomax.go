@@ -16,6 +16,8 @@ import (
 
 var USER, PASSWORD string
 
+// This schema is only valid for datacharmer/test_db
+// If you would like to use your own, please change accordingly.
 var (
 	deptNo    string
 	deptName  string
@@ -31,12 +33,27 @@ var (
 	title     string
 )
 
-var operationPtr = flag.String("operator", "", "Operation: SELECT, DELETE, UPDATE, INSERT")
-var countPtr = flag.Int("count", 1, "Repeat: Number of times to repeat the benchmark.")
-var dbPtr = flag.String("db", "", "Database: Name of the DB to perform operations on.")
-var tablePtr = flag.String("table", "", "Table: Name of the table to perform operations on.")
-var conditionPtr = flag.String("condition", "", "Condition: Constraint on the transaction.")
+// Make stuff that is common globally accessible
+var operationPtr, columnsPtr, dbPtr, tablePtr, conditionPtr interface{}
+var testVectorConfig = flag.String("vector", "", "Test Vectors: Input a predefined test vector configuration file.")
 var jsonConfig = flag.String("config", "", "Configuration: Input a predefined configuration file.")
+var countPtr = flag.Int("count", 1, "Repeat: Number of times to repeat the benchmark.")
+var config map[string]interface{}
+
+func initPtrs() {
+	if testVectorConfig != nil {
+		operationPtr = config["action"]
+		columnsPtr = config["columns"]
+		dbPtr = config["test_db"]
+		tablePtr = config["test_table"]
+		conditionPtr = config["condition"]
+	} else {
+		operationPtr = flag.String("operator", "", "Operation: SELECT, DELETE, UPDATE, INSERT")
+		dbPtr = flag.String("db", "", "Database: Name of the DB to perform operations on.")
+		tablePtr = flag.String("table", "", "Table: Name of the table to perform operations on.")
+		conditionPtr = flag.String("condition", "", "Condition: Constraint on the transaction.")
+	}
+}
 
 func GetFunctionName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
@@ -54,8 +71,13 @@ func Benchmark_prepareStatement(bench *testing.B) {
 	defer db.Close()
 
 	for iter := 0; iter < bench.N; iter++ {
-		rows := prepareStatement(db, *operationPtr, *tablePtr, *conditionPtr)
-		rows.Close()
+		if testVectorConfig != nil {
+			rows := prepareStatement(db, config["action"].(string), config["columns"].(string), config["test_table"].(string), config["condition"].(string))
+			rows.Close()
+		} else {
+			rows := prepareStatement(db, operationPtr.(string), columnsPtr.(string), tablePtr.(string), conditionPtr.(string))
+			rows.Close()
+		}
 	}
 }
 
@@ -63,7 +85,7 @@ func Benchmark_processData(bench *testing.B) {
 	db := initializeDB()
 	defer db.Close()
 
-	rows := prepareStatement(db, *operationPtr, *tablePtr, *conditionPtr)
+	rows := prepareStatement(db, operationPtr.(string), columnsPtr.(string), tablePtr.(string), conditionPtr.(string))
 	defer rows.Close()
 
 	for iter := 0; iter < bench.N; iter++ {
@@ -72,20 +94,29 @@ func Benchmark_processData(bench *testing.B) {
 }
 
 func configParse(inputFile ...string) {
-	var config map[string]interface{}
 
 	if inputFile != nil {
 		file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", inputFile[0]))
 		if err != nil {
-			log.Error(fmt.Sprintf("file io error: %s\n", err.Error()))
+			log.Error(fmt.Sprintf("File IO Error: %s\n", err.Error()))
+		}
+		file_testConfig, err_testConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/%s", inputFile[1]))
+		if err_testConfig != nil {
+			log.Error(fmt.Sprintf("Test config File IO Error: %s\n", err.Error()))
 		}
 		json.Unmarshal(file, &config)
+		json.Unmarshal(file_testConfig, &config)
 	} else {
 		file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", *jsonConfig))
 		if err != nil {
-			log.Error(fmt.Sprintf("file io error: %s\n", err.Error()))
+			log.Error(fmt.Sprintf("File IO Error: %s\n", err.Error()))
+		}
+		file_testConfig, err_testConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/%s", *testVectorConfig))
+		if err_testConfig != nil {
+			log.Error(fmt.Sprintf("Test config File IO Error: %s\n", err.Error()))
 		}
 		json.Unmarshal(file, &config)
+		json.Unmarshal(file_testConfig, &config)
 	}
 
 	USER = config["user"].(string)
@@ -93,12 +124,12 @@ func configParse(inputFile ...string) {
 }
 
 func validateInput() {
-	if *tablePtr == "" {
+	if tablePtr == "" {
 		log.Error("Please specify a MySQL table using the --table option.")
-	} else if *dbPtr == "" {
+	} else if dbPtr == "" {
 		log.Error("Please specify a MySQL database using the --database option.")
-	} else if *operationPtr == "" {
-		log.Error("Please specify a MySQL operation using the --operator option.")
+	} else if operationPtr == "" && *testVectorConfig == "" {
+		log.Error("Please specify a MySQL operation using the --operator option or specify a test vector using --vector option.")
 	} else if *jsonConfig == "" {
 		log.Error("Please specify a configuration file using the --config option.")
 	}
@@ -113,7 +144,7 @@ func initializeDB(inputParams ...string) *sql.DB {
 		}
 		return db
 	} else {
-		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", USER, PASSWORD, *dbPtr))
+		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", USER, PASSWORD, dbPtr.(string)))
 		if err != nil {
 			log.Error(err.Error())
 		}
@@ -121,8 +152,8 @@ func initializeDB(inputParams ...string) *sql.DB {
 	}
 }
 
-func prepareStatement(db *sql.DB, operationPtr string, tablePtr string, conditionPtr string) *sql.Rows {
-	stmtOut, err := db.Prepare(fmt.Sprintf("%s FROM %s %s", operationPtr, tablePtr, conditionPtr))
+func prepareStatement(db *sql.DB, operationPtr string, columnsPtr string, tablePtr string, conditionPtr string) *sql.Rows {
+	stmtOut, err := db.Prepare(fmt.Sprintf("%s %s FROM %s %s", operationPtr, columnsPtr, tablePtr, conditionPtr))
 	if err != nil {
 		log.Error(err.Error())
 	}
@@ -136,11 +167,11 @@ func prepareStatement(db *sql.DB, operationPtr string, tablePtr string, conditio
 
 func processData(rows *sql.Rows, inputParams ...string) bool {
 	if inputParams != nil {
-		*tablePtr = inputParams[0]
+		tablePtr = inputParams[0]
 	}
 
 	for rows.Next() {
-		switch *tablePtr {
+		switch tablePtr {
 		case "employees":
 			err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
 			if err != nil {
@@ -188,6 +219,8 @@ func main() {
 	validateInput()
 
 	configParse()
+
+	initPtrs()
 
 	runBenchmarks()
 }
