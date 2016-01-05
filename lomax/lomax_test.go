@@ -7,7 +7,7 @@ import (
 )
 
 func TestTravis(t *testing.T) {
-	configParse("openstack-generic-config.json")
+	configParse("openstack-generic-config.json", "openstack-generic-tests.json")
 	cases := []struct {
 		testTableInput     string
 		testDBInput        string
