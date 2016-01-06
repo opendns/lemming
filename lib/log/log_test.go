@@ -24,15 +24,20 @@ func TestStderr(t *testing.T) {
 }
 
 func TestDebug(t *testing.T) {
-	testSomeLogMethod(t, log.Debug, "DEBUG")
+	log.SetDebug(false)
+	testSomeLogMethod(t, log.Debug, "DEBUG", false)
+	log.SetDebug(true)
+	testSomeLogMethod(t, log.Debug, "DEBUG", true)
+	log.SetDebug(false)
+	testSomeLogMethod(t, log.Debug, "DEBUG", false)
 }
 
 func TestInfo(t *testing.T) {
-	testSomeLogMethod(t, log.Info, "INFO")
+	testSomeLogMethod(t, log.Info, "INFO", true)
 }
 
 func TestWarning(t *testing.T) {
-	testSomeLogMethod(t, log.Warning, "WARNING")
+	testSomeLogMethod(t, log.Warning, "WARNING", true)
 }
 
 func TestError(t *testing.T) {
@@ -60,20 +65,31 @@ func TestError(t *testing.T) {
 type LogMethod func(string, ...interface{})
 
 // Helper function for the logging tests; sets up an io.Pipe to validate output
-func testSomeLogMethod(t *testing.T, fn LogMethod, level string) {
+func testSomeLogMethod(t *testing.T, fn LogMethod, level string, expectOutput bool) {
 	r, w := io.Pipe()
-	defer w.Close()
 	defer r.Close()
 	log.InitWithWriter(w)
 
 	// Generate log message
 	rs := randomString()
-	go fn(rs)
+	go func() {
+		fn(rs)
+		w.Close()
+	}()
 
 	// Check we got the message
 	var output []byte = make([]byte, 1024)
-	if _, err := r.Read(output); err != nil {
-		t.Fatalf("Cannot read log output from io.Pipe: %v", err)
+	_, readErr := r.Read(output)
+	if readErr != nil && readErr != io.EOF {
+		t.Fatalf("Cannot read log output from io.Pipe: %v", readErr)
+	}
+	if readErr == io.EOF {
+		if expectOutput {
+			// This is what we wanted
+			t.Fatalf("Got EOF when output was expected")
+		} else {
+			return
+		}
 	}
 	t.Logf("Log output: <<<%s>>>", string(output))
 	if !strings.Contains(string(output), rs) {
