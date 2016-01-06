@@ -1,4 +1,16 @@
-package main
+// The lemming/lomax is a benchmarking tool for the lemming suite of
+// MySQL Data appliations at OpenDNS. Lomax aims to support various
+// forks and flavors of MySQL for benchmark and testing.
+//
+// Example:
+//
+//	   ./lomax --vector=openstack-generic-test-select.json --config=openstack-generic-config.json
+//
+//		[main.BenchmarkInitializeDB    ]: Time Taken: 2.995021859s      Ops:   200000        14975 ns/op
+//		[main.BenchmarkPrepareStatement]: Time Taken: 1.394912791s      Ops:     5000       278982 ns/op
+//		[main.BenchmarkProcessData     ]: Time Taken: 1.214483332s      Ops: 100000000          12.1 ns/op
+
+package lomax
 
 import (
 	"database/sql"
@@ -10,7 +22,6 @@ import (
 	"runtime"
 	"testing"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/opendns/lemming/lib/log"
 )
 
