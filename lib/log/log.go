@@ -29,6 +29,7 @@ import (
 var logger struct {
 	Initialized bool
 	Writer      io.Writer
+	Debug       bool
 }
 
 // Writer returns the writer currently selected by the logger output.
@@ -54,13 +55,22 @@ func InitWithStderr() {
 func InitWithWriter(w io.Writer) {
 	logger.Writer = w
 	logger.Initialized = true
+	// logger.Debug starts at false.  We don't re-initialize it in case the
+	// user manually set it before Init.
+}
+
+// SetDebug enables or disables debug logging.  It starts disabled.
+func SetDebug(dbg bool) {
+	logger.Debug = dbg
 }
 
 // Debug logs the given message at DEBUG level.  This is for getting verbose
 // detail from the program during development or debugging, whose content would
 // not be interesting to an end-user.
 func Debug(format string, v ...interface{}) {
-	doLog("DEBUG", format, v...)
+	if logger.Debug {
+		doLog("DEBUG", format, v...)
+	}
 }
 
 // Info logs the given message at INFO level.  This is for normal program status.
