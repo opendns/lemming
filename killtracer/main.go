@@ -7,17 +7,15 @@ import (
 )
 
 func main() {
+	//log.SetDebug(true)
 	signal.Ignore(syscall.SIGWINCH)
-	e := NewKillTraceEnabler()
-	log.Info("Enabling syscall_kill tracing")
-	e.Enable()
-	defer e.Disable()
-	log.Info("Starting syscall_kill trace watcher thread")
-	go e.Watch()
+	signal.Ignore(syscall.SIGHUP)
+
+	go WatchDebugSettings()
 
 	log.Info("Watching trace pipe for kill signals")
 	WatchTracePipe()
 
-	log.Info("Restoring old syscall_kill tracing values")
-	e.EndWatch()
+	// Should be unreachable
+	log.Error("Unexpected exit from WatchTracePipe()")
 }
