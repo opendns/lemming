@@ -1,6 +1,7 @@
 package sys
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -13,7 +14,7 @@ func checkProcFilesystemExists(t *testing.T) {
 		if os.IsNotExist(err) {
 			t.Skip("No /proc file system available for testing")
 		} else {
-			t.Fatal("Unexpected error reading /proc: %v")
+			t.Fatal(fmt.Sprintf("Unexpected error reading /proc: %v"))
 		}
 	}
 	procdir.Close()
@@ -27,14 +28,14 @@ func TestGetProcUidOnOurself(t *testing.T) {
 	ourEuid := os.Geteuid()
 	tuid, teuid, err := GetProcUid(os.Getpid())
 	if err != nil {
-		t.Error("Trouble getting UID from /proc: %v", err)
+		t.Error(fmt.Sprintf("Trouble getting UID from /proc: %v", err))
 	}
 	if tuid != ourUid {
-		t.Error("Returned UID (%d) does not match getuid(2) (%d)", tuid, ourUid)
+		t.Error(fmt.Sprintf("Returned UID (%d) does not match getuid(2) (%d)", tuid, ourUid))
 	}
 	if teuid != ourEuid {
 		//
-		t.Error("Returned EUID (%d) does not match getuid(2) (%d)")
+		t.Error(fmt.Sprintf("Returned EUID (%d) does not match getuid(2) (%d)", teuid, ourEuid))
 	}
 }
 
@@ -48,13 +49,13 @@ func TestGetProcUidOnRoot(t *testing.T) {
 			// This is likely to be the case in a Jenkins container
 			t.Skip("No permission to read /proc/1/status")
 		}
-		t.Error("Unexpected error reading /proc/1/status: %v", err)
+		t.Error(fmt.Sprintf("Unexpected error reading /proc/1/status: %v", err))
 	}
 	if tuid != 0 {
-		t.Error("Expected 0 for root process EUID, got %d", tuid)
+		t.Error(fmt.Sprintf("Expected 0 for root process EUID, got %d", tuid))
 	}
 	if teuid != 0 {
-		t.Error("Expected 0 for root process EUID, got %d", teuid)
+		t.Error(fmt.Sprintf("Expected 0 for root process EUID, got %d", teuid))
 	}
 }
 
@@ -67,9 +68,9 @@ func TestGetProcUidOnInvalid(t *testing.T) {
 		t.Error("Expected failure to read /proc/-2, got unexpected success")
 	}
 	if tuid != -1 {
-		t.Error("Expected -1 for UID of failed lookup, got %d", tuid)
+		t.Error(fmt.Sprintf("Expected -1 for UID of failed lookup, got %d", tuid))
 	}
 	if teuid != -1 {
-		t.Error("Expected -1 for EUID of failed lookup, got %d", teuid)
+		t.Error(fmt.Sprintf("Expected -1 for EUID of failed lookup, got %d", teuid))
 	}
 }
