@@ -1,4 +1,4 @@
-package lomax
+package main
 
 import (
 	"testing"
