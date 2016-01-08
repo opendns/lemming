@@ -10,18 +10,21 @@
 //		[main.BenchmarkPrepareStatement]: Time Taken: 1.394912791s      Ops:     5000       278982 ns/op
 //		[main.BenchmarkProcessData     ]: Time Taken: 1.214483332s      Ops: 100000000          12.1 ns/op
 
-package lomax
+package main
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"runtime"
 	"testing"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/opendns/lemming/lib/log"
 )
 
@@ -52,8 +55,11 @@ var (
 var operationPtr, columnsPtr, dbPtr, tablePtr, conditionPtr interface{}
 var testVectorConfig = flag.String("vector", "", "Test Vectors: Input a predefined test vector configuration file.")
 var jsonConfig = flag.String("config", "", "Configuration: Input a predefined configuration file.")
+var graphDumps = flag.String("graph", "", "Output Dumps: If defined, the program outputs the data to a specified file format.")
 var countPtr = flag.Int("count", 1, "Repeat: Number of times to repeat the benchmark.")
+var logPrefix = flag.String("logprefix", "", "Log: If defined the logs are prefixed with this name")
 var config map[string]interface{}
+var benchmarkData []string
 
 func initPtrs() {
 	if testVectorConfig != nil {
@@ -222,14 +228,61 @@ func processData(rows *sql.Rows, inputParams ...string) bool {
 }
 
 func runBenchmarks() {
+	if *logPrefix == "" {
+		log.Warning(fmt.Sprintf("[%s]: No --logprefix defined, log file will NOT be created", GetFunctionName(exportData)))
+	}
+
 	br := testing.Benchmark(BenchmarkInitializeDB)
-	fmt.Println(fmt.Sprintf("[%s    ]: Time Taken: %s 	Ops: %s", GetFunctionName(BenchmarkInitializeDB), br.T, br))
+	collectData(br, BenchmarkInitializeDB)
 
 	br = testing.Benchmark(BenchmarkPrepareStatement)
-	fmt.Println(fmt.Sprintf("[%s]: Time Taken: %s 	Ops: %s", GetFunctionName(BenchmarkPrepareStatement), br.T, br))
+	collectData(br, BenchmarkPrepareStatement)
 
 	br = testing.Benchmark(BenchmarkProcessData)
-	fmt.Println(fmt.Sprintf("[%s     ]: Time Taken: %s 	Ops: %s", GetFunctionName(BenchmarkProcessData), br.T, br))
+	collectData(br, BenchmarkProcessData)
+}
+
+func writeToFile() *os.File {
+	filePtr, err := os.OpenFile(fmt.Sprintf("./results/%s.%s", *logPrefix, *graphDumps), os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	if err != nil {
+		log.Error("[%s]: Cannot create file for writing.", GetFunctionName(writeToFile))
+	}
+	return filePtr
+}
+
+func collectData(br testing.BenchmarkResult, funcPtr func(*testing.B)) {
+	if *graphDumps == "json" && *logPrefix != "" {
+		benchmarkStr := fmt.Sprintf("[%s]: Time Taken: %s, Ops: %s", GetFunctionName(funcPtr), br.T, br)
+		fmt.Println(benchmarkStr)
+		benchmarkData = append(benchmarkData, string(benchmarkStr))
+	} else if *graphDumps == "csv" && *logPrefix != "" {
+		benchmarkStr := fmt.Sprintf("[%s]: Time Taken: %s, Ops: %s", GetFunctionName(funcPtr), br.T, br)
+		fmt.Println(benchmarkStr)
+		benchmarkData = append(benchmarkData, string(benchmarkStr))
+	} else {
+		fmt.Println(fmt.Sprintf("[%s]: Time Taken: %s, Ops: %s", GetFunctionName(funcPtr), br.T, br))
+	}
+}
+
+func exportData() {
+	if *graphDumps == "json" && *logPrefix != "" {
+		filePtr := writeToFile()
+		jsonString, _ := json.MarshalIndent(benchmarkData, "", "  ")
+		_, err := filePtr.WriteString(string(jsonString))
+		if err != nil {
+			log.Error("[%s]: Couldn't write to the JSON output file")
+		}
+		defer filePtr.Close()
+	} else if *graphDumps == "csv" && *logPrefix != "" {
+		filePtr := writeToFile()
+		csvWriter := csv.NewWriter(filePtr)
+		err := csvWriter.Write(benchmarkData)
+		if err != nil {
+			log.Error("[%s]: Cannot write to CSV file", err)
+		}
+		csvWriter.Flush()
+		defer filePtr.Close()
+	}
 }
 
 func main() {
@@ -242,4 +295,8 @@ func main() {
 	initPtrs()
 
 	runBenchmarks()
+
+	if *logPrefix != "" {
+		exportData()
+	}
 }
