@@ -139,6 +139,8 @@ func configParse(inputFile ...string) {
 		}
 		json.Unmarshal(file, &config)
 		json.Unmarshal(fileTestConfig, &config)
+		USER = config["user"].(string)
+		PASSWORD = config["pass"].(string)
 	} else {
 		if jsonConfig != "" {
 			file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", jsonConfig))
