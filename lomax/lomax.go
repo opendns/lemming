@@ -52,27 +52,40 @@ var (
 )
 
 // Make stuff that is common globally accessible
-var operationPtr, columnsPtr, dbPtr, tablePtr, conditionPtr interface{}
-var testVectorConfig = flag.String("vector", "", "Test Vectors: Input a predefined test vector configuration file.")
-var jsonConfig = flag.String("config", "", "Configuration: Input a predefined configuration file.")
-var graphDumps = flag.String("graph", "", "Output Dumps: If defined, the program outputs the data to a specified file format.")
-var countPtr = flag.Int("count", 1, "Repeat: Number of times to repeat the benchmark.")
-var logPrefix = flag.String("logprefix", "", "Log: If defined the logs are prefixed with this name")
+var operationPtr, columnsPtr, dbPtr, tablePtr, conditionPtr string
+var logType, logPrefix string
 var config map[string]interface{}
 var benchmarkData []string
+var countPtr float64
 
-func initPtrs() {
-	if testVectorConfig != nil {
-		operationPtr = config["action"]
-		columnsPtr = config["columns"]
-		dbPtr = config["test_db"]
-		tablePtr = config["test_table"]
-		conditionPtr = config["condition"]
-	} else {
-		operationPtr = flag.String("operator", "", "Operation: SELECT, DELETE, UPDATE, INSERT")
-		dbPtr = flag.String("db", "", "Database: Name of the DB to perform operations on.")
-		tablePtr = flag.String("table", "", "Table: Name of the table to perform operations on.")
-		conditionPtr = flag.String("condition", "", "Condition: Constraint on the transaction.")
+var jsonConfig, testVectorConfig string
+
+func init() {
+	flag.StringVar(&jsonConfig, "config", "", "JSON config: Input a predefined JSON configuration file.")
+	flag.StringVar(&testVectorConfig, "vector", "", "Test Vectors: Input a predefined test vector configuration file.")
+	flag.StringVar(&logPrefix, "logprefix", "", "Log Prefix: Defines the prefix for output result file.")
+	flag.StringVar(&logType, "logtype", "", "Log Prefix: Defines the output format for storing test results.")
+	flag.StringVar(&operationPtr, "operation", "", "Query to run: e.g. SELECT, INSERT..")
+	flag.StringVar(&columnsPtr, "cols", "", "Columns to select in a query.")
+	flag.StringVar(&dbPtr, "db", "", "DB to perform queries on.")
+	flag.StringVar(&tablePtr, "table", "", "Table to use for operations.")
+	flag.StringVar(&conditionPtr, "condition", "", "Any conditions to enforce on query.")
+	flag.Float64Var(&countPtr, "count", 1, "Number of iterations to perform.")
+	flag.StringVar(&USER, "user", "", "MySQL username.")
+	flag.StringVar(&PASSWORD, "password", "", "MySQL password.")
+}
+
+func setPtrs() {
+	configParse()
+	if jsonConfig != "" && testVectorConfig != "" {
+		operationPtr = config["action"].(string)
+		columnsPtr = config["columns"].(string)
+		dbPtr = config["test_db"].(string)
+		tablePtr = config["test_table"].(string)
+		conditionPtr = config["condition"].(string)
+		countPtr = config["count"].(float64)
+		USER = config["user"].(string)
+		PASSWORD = config["pass"].(string)
 	}
 }
 
@@ -95,13 +108,8 @@ func BenchmarkPrepareStatement(bench *testing.B) {
 	defer db.Close()
 
 	for iter := 0; iter < bench.N; iter++ {
-		if testVectorConfig != nil {
-			rows := prepareStatement(db, config["action"].(string), config["columns"].(string), config["test_table"].(string), config["condition"].(string))
-			rows.Close()
-		} else {
-			rows := prepareStatement(db, operationPtr.(string), columnsPtr.(string), tablePtr.(string), conditionPtr.(string))
-			rows.Close()
-		}
+		rows := prepareStatement(db, operationPtr, columnsPtr, tablePtr, conditionPtr)
+		rows.Close()
 	}
 }
 
@@ -110,7 +118,7 @@ func BenchmarkProcessData(bench *testing.B) {
 	db := initializeDB()
 	defer db.Close()
 
-	rows := prepareStatement(db, operationPtr.(string), columnsPtr.(string), tablePtr.(string), conditionPtr.(string))
+	rows := prepareStatement(db, operationPtr, columnsPtr, tablePtr, conditionPtr)
 	defer rows.Close()
 
 	for iter := 0; iter < bench.N; iter++ {
@@ -131,32 +139,40 @@ func configParse(inputFile ...string) {
 		}
 		json.Unmarshal(file, &config)
 		json.Unmarshal(fileTestConfig, &config)
+		USER = config["user"].(string)
+		PASSWORD = config["pass"].(string)
 	} else {
-		file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", *jsonConfig))
-		if err != nil {
-			log.Error(fmt.Sprintf("File IO Error: %s\n", err.Error()))
+		if jsonConfig != "" {
+			file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", jsonConfig))
+			if err != nil {
+				log.Error(fmt.Sprintf("File IO Error: %s\n", err.Error()))
+			}
+			json.Unmarshal(file, &config)
 		}
-		fileTestConfig, errTestConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/%s", *testVectorConfig))
-		if errTestConfig != nil {
-			log.Error(fmt.Sprintf("Test config File IO Error: %s\n", err.Error()))
-		}
-		json.Unmarshal(file, &config)
-		json.Unmarshal(fileTestConfig, &config)
-	}
 
-	USER = config["user"].(string)
-	PASSWORD = config["pass"].(string)
+		if testVectorConfig != "" {
+			fileTestConfig, errTestConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/%s", testVectorConfig))
+			if errTestConfig != nil {
+				log.Error(fmt.Sprintf("Test config File IO Error: %s\n", errTestConfig.Error()))
+			}
+			json.Unmarshal(fileTestConfig, &config)
+		}
+	}
 }
 
 func validateInput() {
-	if tablePtr == "" {
+	if tablePtr == "" && testVectorConfig == "" {
 		log.Error("Please specify a MySQL table using the --table option.")
-	} else if dbPtr == "" {
+	} else if dbPtr == "" && testVectorConfig == "" {
 		log.Error("Please specify a MySQL database using the --database option.")
-	} else if operationPtr == "" && *testVectorConfig == "" {
-		log.Error("Please specify a MySQL operation using the --operator option or specify a test vector using --vector option.")
-	} else if *jsonConfig == "" {
-		log.Error("Please specify a configuration file using the --config option.")
+	} else if operationPtr == "" && testVectorConfig == "" {
+		log.Error("Please specify a MySQL operation using the --operation option or specify a test vector using --vector option.")
+	} else if columnsPtr == "" && testVectorConfig == "" {
+		log.Error("Please specify columns to operate on using the --cols option or specify a test vector using the --vector option.")
+	} else if USER == "" && jsonConfig == "" {
+		log.Error("Please specify a MySQL user using the --user option.")
+	} else if PASSWORD == "" && jsonConfig == "" {
+		log.Error("Please specify the MySQL password for the user using the --password option.")
 	}
 }
 
@@ -170,7 +186,7 @@ func initializeDB(inputParams ...string) *sql.DB {
 		return db
 	}
 
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", USER, PASSWORD, dbPtr.(string)))
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", USER, PASSWORD, dbPtr))
 	if err != nil {
 		log.Error(err.Error())
 	}
@@ -228,7 +244,7 @@ func processData(rows *sql.Rows, inputParams ...string) bool {
 }
 
 func runBenchmarks() {
-	if *logPrefix == "" {
+	if logPrefix == "" {
 		log.Warning(fmt.Sprintf("[%s]: No --logprefix defined, log file will NOT be created", GetFunctionName(exportData)))
 	}
 
@@ -243,7 +259,7 @@ func runBenchmarks() {
 }
 
 func writeToFile() *os.File {
-	filePtr, err := os.OpenFile(fmt.Sprintf("./results/%s.%s", *logPrefix, *graphDumps), os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	filePtr, err := os.OpenFile(fmt.Sprintf("./results/%s.%s", logPrefix, logType), os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
 		log.Error("[%s]: Cannot create file for writing.", GetFunctionName(writeToFile))
 	}
@@ -251,11 +267,11 @@ func writeToFile() *os.File {
 }
 
 func collectData(br testing.BenchmarkResult, funcPtr func(*testing.B)) {
-	if *graphDumps == "json" && *logPrefix != "" {
+	if logType == "json" && logPrefix != "" {
 		benchmarkStr := fmt.Sprintf("[%s]: Time Taken: %s, Ops: %s", GetFunctionName(funcPtr), br.T, br)
 		fmt.Println(benchmarkStr)
 		benchmarkData = append(benchmarkData, string(benchmarkStr))
-	} else if *graphDumps == "csv" && *logPrefix != "" {
+	} else if logType == "csv" && logPrefix != "" {
 		benchmarkStr := fmt.Sprintf("[%s]: Time Taken: %s, Ops: %s", GetFunctionName(funcPtr), br.T, br)
 		fmt.Println(benchmarkStr)
 		benchmarkData = append(benchmarkData, string(benchmarkStr))
@@ -265,7 +281,7 @@ func collectData(br testing.BenchmarkResult, funcPtr func(*testing.B)) {
 }
 
 func exportData() {
-	if *graphDumps == "json" && *logPrefix != "" {
+	if logType == "json" {
 		filePtr := writeToFile()
 		jsonString, _ := json.MarshalIndent(benchmarkData, "", "  ")
 		_, err := filePtr.WriteString(string(jsonString))
@@ -273,7 +289,7 @@ func exportData() {
 			log.Error("[%s]: Couldn't write to the JSON output file")
 		}
 		defer filePtr.Close()
-	} else if *graphDumps == "csv" && *logPrefix != "" {
+	} else if logType == "csv" {
 		filePtr := writeToFile()
 		csvWriter := csv.NewWriter(filePtr)
 		err := csvWriter.Write(benchmarkData)
@@ -282,21 +298,21 @@ func exportData() {
 		}
 		csvWriter.Flush()
 		defer filePtr.Close()
+	} else {
+		log.Warning("No --logtype specified, only logging to stdout.")
 	}
 }
 
 func main() {
 	flag.Parse()
 
+	setPtrs()
+
 	validateInput()
-
-	configParse()
-
-	initPtrs()
 
 	runBenchmarks()
 
-	if *logPrefix != "" {
+	if logPrefix != "" {
 		exportData()
 	}
 }
