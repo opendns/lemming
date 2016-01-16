@@ -22,9 +22,12 @@ import (
 	"os"
 	"reflect"
 	"runtime"
+	"strconv"
 	"testing"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/olekukonko/tablewriter"
 	"github.com/opendns/lemming/lib/log"
 )
 
@@ -56,6 +59,7 @@ var operationPtr, columnsPtr, dbPtr, tablePtr, conditionPtr string
 var logType, logPrefix string
 var config map[string]interface{}
 var benchmarkData []string
+var benchBuffer [][]string
 var countPtr float64
 
 var jsonConfig, testVectorConfig string
@@ -244,6 +248,8 @@ func processData(rows *sql.Rows, inputParams ...string) bool {
 }
 
 func runBenchmarks() {
+	fmt.Println(fmt.Sprintf("Running benchmarks, please wait..."))
+
 	if logPrefix == "" {
 		log.Warning(fmt.Sprintf("[%s]: No --logprefix defined, log file will NOT be created", GetFunctionName(exportData)))
 	}
@@ -256,10 +262,12 @@ func runBenchmarks() {
 
 	br = testing.Benchmark(BenchmarkProcessData)
 	collectData(br, BenchmarkProcessData)
+
+	printData()
 }
 
 func writeToFile() *os.File {
-	filePtr, err := os.OpenFile(fmt.Sprintf("./results/%s.%s", logPrefix, logType), os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	filePtr, err := os.OpenFile(fmt.Sprintf("./results/%s.%s.%s", logPrefix, logType, strconv.FormatInt(time.Now().Unix(), 10)), os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
 		log.Error("[%s]: Cannot create file for writing.", GetFunctionName(writeToFile))
 	}
@@ -268,33 +276,52 @@ func writeToFile() *os.File {
 
 func collectData(br testing.BenchmarkResult, funcPtr func(*testing.B)) {
 	if logType == "json" && logPrefix != "" {
-		benchmarkStr := fmt.Sprintf("[%s]: Time Taken: %s, Ops: %s", GetFunctionName(funcPtr), br.T, br)
-		fmt.Println(benchmarkStr)
+		benchmarkStr := fmt.Sprintf("%s,%s", br.T, br.N)
 		benchmarkData = append(benchmarkData, string(benchmarkStr))
+		benchBuffer = append(benchBuffer, []string{fmt.Sprintf("%s", GetFunctionName(funcPtr)), fmt.Sprintf("%s", br.T), fmt.Sprintf("%d", br.N), fmt.Sprintf("%d", br.MemAllocs), fmt.Sprintf("%d", br.MemBytes)})
 	} else if logType == "csv" && logPrefix != "" {
-		benchmarkStr := fmt.Sprintf("[%s]: Time Taken: %s, Ops: %s", GetFunctionName(funcPtr), br.T, br)
-		fmt.Println(benchmarkStr)
+		benchmarkStr := fmt.Sprintf("%s,%s", br.T, br.N)
 		benchmarkData = append(benchmarkData, string(benchmarkStr))
+		benchBuffer = append(benchBuffer, []string{fmt.Sprintf("%s", GetFunctionName(funcPtr)), fmt.Sprintf("%s", br.T), fmt.Sprintf("%d", br.N), fmt.Sprintf("%d", br.MemAllocs), fmt.Sprintf("%d", br.MemBytes)})
 	} else {
-		fmt.Println(fmt.Sprintf("[%s]: Time Taken: %s, Ops: %s", GetFunctionName(funcPtr), br.T, br))
+		benchBuffer = append(benchBuffer, []string{fmt.Sprintf("%s", GetFunctionName(funcPtr)), fmt.Sprintf("%s", br.T), fmt.Sprintf("%d", br.N), fmt.Sprintf("%d", br.MemAllocs), fmt.Sprintf("%d", br.MemBytes)})
 	}
+}
+
+func printData() {
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Function", "Time Taken", "Iterations", "MemAllocs", "MemBytes"})
+
+	for _, value := range benchBuffer {
+		table.Append(value)
+	}
+	table.Render()
 }
 
 func exportData() {
 	if logType == "json" {
 		filePtr := writeToFile()
-		jsonString, _ := json.MarshalIndent(benchmarkData, "", "  ")
-		_, err := filePtr.WriteString(string(jsonString))
-		if err != nil {
-			log.Error("[%s]: Couldn't write to the JSON output file")
+		var tempString [][]string
+		for _, value := range benchBuffer {
+			tempString = append(tempString, value)
+		}
+		jsonString, _ := json.MarshalIndent(tempString, "", "  ")
+		for _, value := range jsonString {
+			_, err := filePtr.WriteString(string(value))
+			if err != nil {
+				log.Error("[%s]: Couldn't write to the JSON output file", GetFunctionName(exportData))
+			}
 		}
 		defer filePtr.Close()
 	} else if logType == "csv" {
 		filePtr := writeToFile()
 		csvWriter := csv.NewWriter(filePtr)
-		err := csvWriter.Write(benchmarkData)
-		if err != nil {
-			log.Error("[%s]: Cannot write to CSV file", err)
+		for _, value := range benchBuffer {
+			err := csvWriter.Write(value)
+			if err != nil {
+				log.Error("[%s]: Cannot write to CSV file", GetFunctionName(exportData))
+			}
 		}
 		csvWriter.Flush()
 		defer filePtr.Close()
