@@ -72,10 +72,10 @@ func testSomeLogMethod(t *testing.T, fn LogMethod, level string, expectOutput bo
 
 	// Generate log message
 	rs := randomString()
-	go func() {
+	go func(fn LogMethod, rs string, w io.WriteCloser) {
 		fn(rs)
 		w.Close()
-	}()
+	}(fn, rs, w)
 
 	// Check we got the message
 	var output []byte = make([]byte, 1024)
