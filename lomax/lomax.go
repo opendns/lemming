@@ -6,9 +6,13 @@
 //
 //	   ./lomax --vector=openstack-generic-test-select.json --config=openstack-generic-config.json
 //
-//		[main.BenchmarkInitializeDB    ]: Time Taken: 2.995021859s      Ops:   200000        14975 ns/op
-//		[main.BenchmarkPrepareStatement]: Time Taken: 1.394912791s      Ops:     5000       278982 ns/op
-//		[main.BenchmarkProcessData     ]: Time Taken: 1.214483332s      Ops: 100000000          12.1 ns/op
+// 	+--------------------------------+--------------+------------+-----------+-----------+
+//	|            FUNCTION            |  TIME TAKEN  | ITERATIONS | MEMALLOCS | MEMBYTES  |
+//	+--------------------------------+--------------+------------+-----------+-----------+
+//	| main.BenchmarkInitializeDB     | 3.03814889s  |     200000 |   2009863 | 151017520 |
+//	| main.BenchmarkPrepareStatement | 3.081639984s |      10000 |    262477 |  10824768 |
+//	| main.BenchmarkProcessData      | 1.262388201s |  100000000 |        96 |      8224 |
+//	+--------------------------------+--------------+------------+-----------+-----------+
 
 package main
 
@@ -317,6 +321,8 @@ func exportData() {
 	} else if logType == "csv" {
 		filePtr := writeToFile()
 		csvWriter := csv.NewWriter(filePtr)
+		headerSlice := []string{"function", "timetaken", "iterations", "memallocs", "membytes"}
+		_ = csvWriter.Write(headerSlice)
 		for _, value := range benchBuffer {
 			err := csvWriter.Write(value)
 			if err != nil {
