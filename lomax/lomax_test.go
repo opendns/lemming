@@ -21,7 +21,7 @@ func TestTravis(t *testing.T) {
 	for _, c := range cases {
 		db := initializeDB(USER, PASSWORD, c.testDBInput)
 		returnedRows := prepareStatement(db, c.testOperationInput, c.testColumnsInput, c.testTableInput, c.testConditionInput)
-		returnedOutput := processData(returnedRows, c.testTableInput)
+		returnedOutput := processData(returnedRows, c.testColumnsInput, c.testTableInput)
 		if returnedOutput != c.outputWanted {
 			t.Errorf("prepareStatement(%q, %q, %q, %q) returned %q, want %q", c.testDBInput, c.testColumnsInput, c.testOperationInput, c.testTableInput, c.testConditionInput, returnedOutput, c.outputWanted)
 		}
