@@ -6,5 +6,5 @@
     "columns": "*",
     "condition": "WHERE dept_no > 'd006'",
     "limit": 2,
-    "count": 1
+    "count": 10000
 }
