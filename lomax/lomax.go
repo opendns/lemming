@@ -6,9 +6,13 @@
 //
 //	   ./lomax --vector=openstack-generic-test-select.json --config=openstack-generic-config.json
 //
-//		[main.BenchmarkInitializeDB    ]: Time Taken: 2.995021859s      Ops:   200000        14975 ns/op
-//		[main.BenchmarkPrepareStatement]: Time Taken: 1.394912791s      Ops:     5000       278982 ns/op
-//		[main.BenchmarkProcessData     ]: Time Taken: 1.214483332s      Ops: 100000000          12.1 ns/op
+// 	+--------------------------------+--------------+------------+-----------+-----------+
+//	|            FUNCTION            |  TIME TAKEN  | ITERATIONS | MEMALLOCS | MEMBYTES  |
+//	+--------------------------------+--------------+------------+-----------+-----------+
+//	| main.BenchmarkInitializeDB     | 3.03814889s  |     200000 |   2009863 | 151017520 |
+//	| main.BenchmarkPrepareStatement | 3.081639984s |      10000 |    262477 |  10824768 |
+//	| main.BenchmarkProcessData      | 1.262388201s |  100000000 |        96 |      8224 |
+//	+--------------------------------+--------------+------------+-----------+-----------+
 
 package main
 
@@ -23,6 +27,7 @@ import (
 	"reflect"
 	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -100,7 +105,7 @@ func GetFunctionName(i interface{}) string {
 
 // BenchmarkInitializeDB : Benchmark helper function to benchmark initializeDB()
 func BenchmarkInitializeDB(bench *testing.B) {
-	for iter := 0; iter < bench.N; iter++ {
+	for iter := 0; iter < bench.N*int(countPtr); iter++ {
 		db := initializeDB()
 		db.Close()
 	}
@@ -111,7 +116,7 @@ func BenchmarkPrepareStatement(bench *testing.B) {
 	db := initializeDB()
 	defer db.Close()
 
-	for iter := 0; iter < bench.N; iter++ {
+	for iter := 0; iter < bench.N*int(countPtr); iter++ {
 		rows := prepareStatement(db, operationPtr, columnsPtr, tablePtr, conditionPtr)
 		rows.Close()
 	}
@@ -125,8 +130,8 @@ func BenchmarkProcessData(bench *testing.B) {
 	rows := prepareStatement(db, operationPtr, columnsPtr, tablePtr, conditionPtr)
 	defer rows.Close()
 
-	for iter := 0; iter < bench.N; iter++ {
-		_ = processData(rows)
+	for iter := 0; iter < bench.N*int(countPtr); iter++ {
+		_ = processData(rows, columnsPtr, tablePtr)
 	}
 }
 
@@ -137,7 +142,8 @@ func configParse(inputFile ...string) {
 		if err != nil {
 			log.Error(fmt.Sprintf("File IO Error: %s\n", err.Error()))
 		}
-		fileTestConfig, errTestConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/%s", inputFile[1]))
+		// Only JSON files are supported through the go test interface.
+		fileTestConfig, errTestConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/json/%s", inputFile[1]))
 		if errTestConfig != nil {
 			log.Error(fmt.Sprintf("Test config File IO Error: %s\n", err.Error()))
 		}
@@ -210,26 +216,67 @@ func prepareStatement(db *sql.DB, operationPtr string, columnsPtr string, tableP
 	return rows
 }
 
-func processData(rows *sql.Rows, inputParams ...string) bool {
-	if inputParams != nil {
-		tablePtr = inputParams[0]
+func determineTables(tables string) []string {
+	strArr := strings.Split(tables, " ")
+	var tablesArr []string
+	for i := 0; i < len(strArr); i += 2 {
+		tablesArr = append(tablesArr, strArr[i])
 	}
+	return tablesArr
+}
+
+func determineColumns(columns string) []string {
+	strArr := strings.FieldsFunc(columns, func(r rune) bool { return r == '.' || r == ',' })
+	var colsArr []string
+	for i := 1; i < len(strArr); i += 2 {
+		colsArr = append(colsArr, strArr[i])
+	}
+	return colsArr
+}
+
+func processData(rows *sql.Rows, columns string, tables string) bool {
+	tablesArr := determineTables(tables)
+	//columnsArr := determineColumns(columns)
 
 	for rows.Next() {
-		switch tablePtr {
+		switch tablesArr[0] {
 		case "employees":
-			err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
-			if err != nil {
-				log.Error(err.Error())
+			if len(tablesArr) == 1 { // singular table operation
+				err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
+				if err != nil {
+					log.Error(err.Error())
+				}
+			} else if tablesArr[1] == "salaries" { // JOIN between employees and salaries
+				err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate, &salary, &fromDate, &toDate)
+				rows.Close()
+				if err != nil {
+					log.Error(err.Error())
+				}
+			} else if tablesArr[1] == "dept_emp" { // JOIN between employees and dept_emp
+				err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate, &deptNo, &fromDate, &toDate)
+				rows.Close()
+				if err != nil {
+					log.Error(err.Error())
+				}
+
+			} else if tablesArr[1] == "dept_manager" { // JOIN between employees and dept_manager
+				err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate, &deptNo, &fromDate, &toDate)
+				rows.Close()
+				if err != nil {
+					log.Error(err.Error())
+				}
+			} else if tablesArr[1] == "titles" { // JOIN between employees and titles
+				err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate, &title, &fromDate, &toDate)
+				rows.Close()
+				if err != nil {
+					log.Error(err.Error())
+				}
 			}
-			// log.Debug(strconv.Itoa(empNo), birthDate, firstName, lastName, gender, hireDate)
 		case "departments":
 			err := rows.Scan(&deptNo, &deptName)
 			if err != nil {
 				log.Error(err.Error())
 			}
-			// log.Debug(strconv.Itoa(deptNo), deptName)
-
 		default:
 			log.Error("Invalid table specified, please check the --table option.")
 			return false
@@ -276,15 +323,15 @@ func writeToFile() *os.File {
 
 func collectData(br testing.BenchmarkResult, funcPtr func(*testing.B)) {
 	if logType == "json" && logPrefix != "" {
-		benchmarkStr := fmt.Sprintf("%s,%s", br.T, br.N)
+		benchmarkStr := fmt.Sprintf("%s,%s", br.T, br.N*int(countPtr))
 		benchmarkData = append(benchmarkData, string(benchmarkStr))
-		benchBuffer = append(benchBuffer, []string{fmt.Sprintf("%s", GetFunctionName(funcPtr)), fmt.Sprintf("%s", br.T), fmt.Sprintf("%d", br.N), fmt.Sprintf("%d", br.MemAllocs), fmt.Sprintf("%d", br.MemBytes)})
+		benchBuffer = append(benchBuffer, []string{fmt.Sprintf("%s", GetFunctionName(funcPtr)), fmt.Sprintf("%s", br.T), fmt.Sprintf("%d", br.N*int(countPtr)), fmt.Sprintf("%d", br.MemAllocs), fmt.Sprintf("%d", br.MemBytes)})
 	} else if logType == "csv" && logPrefix != "" {
-		benchmarkStr := fmt.Sprintf("%s,%s", br.T, br.N)
+		benchmarkStr := fmt.Sprintf("%s,%s", br.T, br.N*int(countPtr))
 		benchmarkData = append(benchmarkData, string(benchmarkStr))
-		benchBuffer = append(benchBuffer, []string{fmt.Sprintf("%s", GetFunctionName(funcPtr)), fmt.Sprintf("%s", br.T), fmt.Sprintf("%d", br.N), fmt.Sprintf("%d", br.MemAllocs), fmt.Sprintf("%d", br.MemBytes)})
+		benchBuffer = append(benchBuffer, []string{fmt.Sprintf("%s", GetFunctionName(funcPtr)), fmt.Sprintf("%s", br.T), fmt.Sprintf("%d", br.N*int(countPtr)), fmt.Sprintf("%d", br.MemAllocs), fmt.Sprintf("%d", br.MemBytes)})
 	} else {
-		benchBuffer = append(benchBuffer, []string{fmt.Sprintf("%s", GetFunctionName(funcPtr)), fmt.Sprintf("%s", br.T), fmt.Sprintf("%d", br.N), fmt.Sprintf("%d", br.MemAllocs), fmt.Sprintf("%d", br.MemBytes)})
+		benchBuffer = append(benchBuffer, []string{fmt.Sprintf("%s", GetFunctionName(funcPtr)), fmt.Sprintf("%s", br.T), fmt.Sprintf("%d", br.N*int(countPtr)), fmt.Sprintf("%d", br.MemAllocs), fmt.Sprintf("%d", br.MemBytes)})
 	}
 }
 
@@ -317,6 +364,8 @@ func exportData() {
 	} else if logType == "csv" {
 		filePtr := writeToFile()
 		csvWriter := csv.NewWriter(filePtr)
+		headerSlice := []string{"function", "timetaken", "iterations", "memallocs", "membytes"}
+		_ = csvWriter.Write(headerSlice)
 		for _, value := range benchBuffer {
 			err := csvWriter.Write(value)
 			if err != nil {

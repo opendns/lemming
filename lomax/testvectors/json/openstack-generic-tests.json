@@ -1,0 +1,21 @@
+{
+  "testcases" : [
+      {
+          "test_name": "[TestVector #1] OpenStack SELECT test",
+          "test_db": "employees",
+          "test_table": "departments",
+          "action": "SELECT",
+          "columns": "*",
+          "condition": "WHERE dept_no > 'd006'",
+          "limit": 2
+      },
+      {
+          "test_name": "[TestVector #2] OpenStack INSERT test",
+          "test_db": "employees",
+          "test_table": "departments",
+          "action": "INSERT INTO",
+          "columns": "(dept_no, dept_name)",
+          "condition": "VALUES ('d020', 'testing_dept_20')"
+      }
+  ]
+}
