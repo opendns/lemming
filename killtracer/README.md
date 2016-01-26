@@ -18,3 +18,11 @@ It requires Linux system call tracing to be compiled and enabled.
 Notice the second system call has a non-zero exit value, indicating it did not succeed.
 
 Signal numbers can be found in the signal(7) man page on most Linux distros.
+
+## Example init.d Start Script
+Starting at Boot time on a Debian based systes may be useful if you want to include long term logging of signals. Do the following to add `killtracer` to your startup and shutdown initialization processes.
+
+<pre>
+# sudo cp killtracer/killtracer.init /etc/init.d/killtracer
+# sudo update-rc.d killtracer defaults 98 02
+</pre>
