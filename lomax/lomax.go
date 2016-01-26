@@ -273,9 +273,68 @@ func processData(rows *sql.Rows, columns string, tables string) bool {
 				}
 			}
 		case "departments":
-			err := rows.Scan(&deptNo, &deptName)
-			if err != nil {
-				log.Error(err.Error())
+			if len(tablesArr) == 1 { // singular table operation
+				err := rows.Scan(&deptNo, &deptName)
+				if err != nil {
+					log.Error(err.Error())
+				}
+			} else if tablesArr[1] == "dept_manager" { // JOIN between departments and dept_manager
+				err := rows.Scan(&deptNo, &deptName, &empNo, &fromDate, &toDate)
+				rows.Close()
+				if err != nil {
+					log.Error(err.Error())
+				}
+			} else if tablesArr[1] == "dept_emp" { // JOIN between departments and dept_emp
+				err := rows.Scan(&deptNo, &deptName, &empNo, &fromDate, &toDate)
+				rows.Close()
+				if err != nil {
+					log.Error(err.Error())
+				}
+			}
+		case "dept_emp":
+			if len(tablesArr) == 1 { // singular table operation
+				err := rows.Scan(&empNo, &deptNo, &fromDate, &toDate)
+				if err != nil {
+					log.Error(err.Error())
+				}
+			} else if tablesArr[1] == "employees" { // JOIN between dept_emp and employees
+				err := rows.Scan(&empNo, &deptNo, &fromDate, &toDate, &birthDate, &firstName, &lastName, &gender, &hireDate)
+				rows.Close()
+				if err != nil {
+					log.Error(err.Error())
+				}
+			} else if tablesArr[1] == "departments" { // JOIN between dept_emp and departments
+				err := rows.Scan(&empNo, &deptNo, &fromDate, &toDate, &deptName)
+				rows.Close()
+				if err != nil {
+					log.Error(err.Error())
+				}
+			}
+		case "salaries":
+			if len(tablesArr) == 1 { // singular table operation
+				err := rows.Scan(&empNo, &salary, &fromDate, &toDate)
+				if err != nil {
+					log.Error(err.Error())
+				}
+			} else if tablesArr[1] == "employees" { // JOIN between salaries and employees
+				err := rows.Scan(&empNo, &salary, &fromDate, &toDate, &birthDate, &firstName, &lastName, &gender, &hireDate)
+				rows.Close()
+				if err != nil {
+					log.Error(err.Error())
+				}
+			}
+		case "titles":
+			if len(tablesArr) == 1 { // singular table operation
+				err := rows.Scan(&empNo, &title, &fromDate, &toDate)
+				if err != nil {
+					log.Error(err.Error())
+				}
+			} else if tablesArr[1] == "employees" { // JOIN between title and employees
+				err := rows.Scan(&empNo, &title, &fromDate, &toDate, &birthDate, &firstName, &lastName, &gender, &hireDate)
+				rows.Close()
+				if err != nil {
+					log.Error(err.Error())
+				}
 			}
 		default:
 			log.Error("Invalid table specified, please check the --table option.")
@@ -336,6 +395,9 @@ func collectData(br testing.BenchmarkResult, funcPtr func(*testing.B)) {
 }
 
 func printData() {
+
+	sqlQuery := fmt.Sprintf("%s %s FROM %s %s", operationPtr, columnsPtr, tablePtr, conditionPtr)
+	fmt.Println(fmt.Sprintf("[%s]: Running Query: %s", GetFunctionName(printData), sqlQuery))
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Function", "Time Taken", "Iterations", "MemAllocs", "MemBytes"})
