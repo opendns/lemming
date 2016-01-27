@@ -243,31 +243,32 @@ func processData(rows *sql.Rows, columns string, tables string) bool {
 		case "employees":
 			if len(tablesArr) == 1 { // singular table operation
 				err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
 			} else if tablesArr[1] == "salaries" { // JOIN between employees and salaries
 				err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate, &salary, &fromDate, &toDate)
-				rows.Close()
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
 			} else if tablesArr[1] == "dept_emp" { // JOIN between employees and dept_emp
 				err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate, &deptNo, &fromDate, &toDate)
-				rows.Close()
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
 
 			} else if tablesArr[1] == "dept_manager" { // JOIN between employees and dept_manager
 				err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate, &deptNo, &fromDate, &toDate)
-				rows.Close()
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
 			} else if tablesArr[1] == "titles" { // JOIN between employees and titles
 				err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate, &title, &fromDate, &toDate)
-				rows.Close()
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
@@ -275,18 +276,19 @@ func processData(rows *sql.Rows, columns string, tables string) bool {
 		case "departments":
 			if len(tablesArr) == 1 { // singular table operation
 				err := rows.Scan(&deptNo, &deptName)
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
 			} else if tablesArr[1] == "dept_manager" { // JOIN between departments and dept_manager
 				err := rows.Scan(&deptNo, &deptName, &empNo, &fromDate, &toDate)
-				rows.Close()
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
 			} else if tablesArr[1] == "dept_emp" { // JOIN between departments and dept_emp
 				err := rows.Scan(&deptNo, &deptName, &empNo, &fromDate, &toDate)
-				rows.Close()
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
@@ -294,18 +296,19 @@ func processData(rows *sql.Rows, columns string, tables string) bool {
 		case "dept_emp":
 			if len(tablesArr) == 1 { // singular table operation
 				err := rows.Scan(&empNo, &deptNo, &fromDate, &toDate)
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
 			} else if tablesArr[1] == "employees" { // JOIN between dept_emp and employees
 				err := rows.Scan(&empNo, &deptNo, &fromDate, &toDate, &birthDate, &firstName, &lastName, &gender, &hireDate)
-				rows.Close()
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
 			} else if tablesArr[1] == "departments" { // JOIN between dept_emp and departments
 				err := rows.Scan(&empNo, &deptNo, &fromDate, &toDate, &deptName)
-				rows.Close()
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
@@ -313,12 +316,13 @@ func processData(rows *sql.Rows, columns string, tables string) bool {
 		case "salaries":
 			if len(tablesArr) == 1 { // singular table operation
 				err := rows.Scan(&empNo, &salary, &fromDate, &toDate)
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
 			} else if tablesArr[1] == "employees" { // JOIN between salaries and employees
 				err := rows.Scan(&empNo, &salary, &fromDate, &toDate, &birthDate, &firstName, &lastName, &gender, &hireDate)
-				rows.Close()
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
@@ -326,12 +330,13 @@ func processData(rows *sql.Rows, columns string, tables string) bool {
 		case "titles":
 			if len(tablesArr) == 1 { // singular table operation
 				err := rows.Scan(&empNo, &title, &fromDate, &toDate)
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
 			} else if tablesArr[1] == "employees" { // JOIN between title and employees
 				err := rows.Scan(&empNo, &title, &fromDate, &toDate, &birthDate, &firstName, &lastName, &gender, &hireDate)
-				rows.Close()
+				defer rows.Close()
 				if err != nil {
 					log.Error(err.Error())
 				}
@@ -341,6 +346,7 @@ func processData(rows *sql.Rows, columns string, tables string) bool {
 			return false
 		}
 		err := rows.Err()
+		defer rows.Close()
 		if err != nil {
 			log.Error(err.Error())
 			return false
@@ -355,6 +361,9 @@ func processData(rows *sql.Rows, columns string, tables string) bool {
 
 func runBenchmarks() {
 	fmt.Println(fmt.Sprintf("Running benchmarks, please wait..."))
+
+	sqlQuery := fmt.Sprintf("%s %s FROM %s %s", operationPtr, columnsPtr, tablePtr, conditionPtr)
+	fmt.Println(fmt.Sprintf("[%s]: Running Query: %s", GetFunctionName(runBenchmarks), sqlQuery))
 
 	if logPrefix == "" {
 		log.Warning(fmt.Sprintf("[%s]: No --logprefix defined, log file will NOT be created", GetFunctionName(exportData)))
@@ -395,10 +404,6 @@ func collectData(br testing.BenchmarkResult, funcPtr func(*testing.B)) {
 }
 
 func printData() {
-
-	sqlQuery := fmt.Sprintf("%s %s FROM %s %s", operationPtr, columnsPtr, tablePtr, conditionPtr)
-	fmt.Println(fmt.Sprintf("[%s]: Running Query: %s", GetFunctionName(printData), sqlQuery))
-
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Function", "Time Taken", "Iterations", "MemAllocs", "MemBytes"})
 
