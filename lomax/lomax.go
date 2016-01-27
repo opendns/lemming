@@ -60,7 +60,7 @@ var (
 )
 
 // Make stuff that is common globally accessible
-var operationPtr, columnsPtr, dbPtr, tablePtr, conditionPtr string
+var operationPtr, flagPtr, columnsPtr, dbPtr, tablePtr, conditionPtr string
 var logType, logPrefix string
 var config map[string]interface{}
 var benchmarkData []string
@@ -75,6 +75,7 @@ func init() {
 	flag.StringVar(&logPrefix, "logprefix", "", "Log Prefix: Defines the prefix for output result file.")
 	flag.StringVar(&logType, "logtype", "", "Log Prefix: Defines the output format for storing test results.")
 	flag.StringVar(&operationPtr, "operation", "", "Query to run: e.g. SELECT, INSERT..")
+	flag.StringVar(&flagPtr, "flag", "", "MySQL Query flag specifier: e.g. LOW_PRIORITY, QUICK, IGNORE..")
 	flag.StringVar(&columnsPtr, "cols", "", "Columns to select in a query.")
 	flag.StringVar(&dbPtr, "db", "", "DB to perform queries on.")
 	flag.StringVar(&tablePtr, "table", "", "Table to use for operations.")
@@ -88,6 +89,7 @@ func setPtrs() {
 	configParse()
 	if jsonConfig != "" && testVectorConfig != "" {
 		operationPtr = config["action"].(string)
+		flagPtr = config["flag"].(string)
 		columnsPtr = config["columns"].(string)
 		dbPtr = config["test_db"].(string)
 		tablePtr = config["test_table"].(string)
@@ -117,8 +119,10 @@ func BenchmarkPrepareStatement(bench *testing.B) {
 	defer db.Close()
 
 	for iter := 0; iter < bench.N*int(countPtr); iter++ {
-		rows := prepareStatement(db, operationPtr, columnsPtr, tablePtr, conditionPtr)
-		rows.Close()
+		rows := prepareStatement(db, operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr)
+		if rows != nil {
+			rows.Close()
+		}
 	}
 }
 
@@ -127,11 +131,12 @@ func BenchmarkProcessData(bench *testing.B) {
 	db := initializeDB()
 	defer db.Close()
 
-	rows := prepareStatement(db, operationPtr, columnsPtr, tablePtr, conditionPtr)
-	defer rows.Close()
-
-	for iter := 0; iter < bench.N*int(countPtr); iter++ {
-		_ = processData(rows, columnsPtr, tablePtr)
+	rows := prepareStatement(db, operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr)
+	if rows != nil {
+		defer rows.Close()
+		for iter := 0; iter < bench.N*int(countPtr); iter++ {
+			_ = processData(rows, columnsPtr, tablePtr)
+		}
 	}
 }
 
@@ -178,7 +183,9 @@ func validateInput() {
 	} else if operationPtr == "" && testVectorConfig == "" {
 		log.Error("Please specify a MySQL operation using the --operation option or specify a test vector using --vector option.")
 	} else if columnsPtr == "" && testVectorConfig == "" {
-		log.Error("Please specify columns to operate on using the --cols option or specify a test vector using the --vector option.")
+		if operationPtr != "UPDATE" && operationPtr != "DELETE" {
+			log.Error("Please specify columns to operate on using the --cols option or specify a test vector using the --vector option.")
+		}
 	} else if USER == "" && jsonConfig == "" {
 		log.Error("Please specify a MySQL user using the --user option.")
 	} else if PASSWORD == "" && jsonConfig == "" {
@@ -203,17 +210,58 @@ func initializeDB(inputParams ...string) *sql.DB {
 	return db
 }
 
-func prepareStatement(db *sql.DB, operationPtr string, columnsPtr string, tablePtr string, conditionPtr string) *sql.Rows {
-	stmtOut, err := db.Prepare(fmt.Sprintf("%s %s FROM %s %s", operationPtr, columnsPtr, tablePtr, conditionPtr))
-	if err != nil {
-		log.Error(err.Error())
+func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, columnsPtr string, tablePtr string, conditionPtr string) *sql.Rows {
+	switch strings.ToUpper(operationPtr) {
+	case "SELECT":
+		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
+		if err != nil {
+			log.Error(err.Error())
+		}
+		rows, err := stmtOut.Query()
+		if err != nil {
+			log.Error(err.Error())
+		}
+		defer stmtOut.Close()
+		return rows
+	case "INSERT":
+		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s INTO %s (%s) VALUES (%s)", operationPtr, flagPtr, tablePtr, columnsPtr, conditionPtr))
+		if err != nil {
+			log.Error(err.Error())
+		}
+		_, err = stmtOut.Exec()
+		if err != nil {
+			log.Error(err.Error())
+		}
+		defer stmtOut.Close()
+		return nil
+	case "DELETE":
+		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s FROM %s WHERE %s", operationPtr, flagPtr, tablePtr, conditionPtr))
+		if err != nil {
+			log.Error(err.Error())
+		}
+		_, err = stmtOut.Exec()
+		if err != nil {
+			log.Error(err.Error())
+		}
+		defer stmtOut.Close()
+		return nil
+	case "UPDATE":
+		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s %s SET %s", operationPtr, flagPtr, tablePtr, conditionPtr))
+		if err != nil {
+			log.Error(err.Error())
+		}
+		_, err = stmtOut.Exec()
+		if err != nil {
+			log.Error(err.Error())
+		}
+		defer stmtOut.Close()
+		return nil
+	default:
+		log.Error("[%s]: Invalid SQL operation specified. Please check the --operation option.", GetFunctionName(prepareStatement))
 	}
-	rows, err := stmtOut.Query()
-	if err != nil {
-		log.Error(err.Error())
-	}
-	defer stmtOut.Close()
-	return rows
+
+	// should not reach here.
+	return nil
 }
 
 func determineTables(tables string) []string {
@@ -362,7 +410,7 @@ func processData(rows *sql.Rows, columns string, tables string) bool {
 func runBenchmarks() {
 	fmt.Println(fmt.Sprintf("Running benchmarks, please wait..."))
 
-	sqlQuery := fmt.Sprintf("%s %s FROM %s %s", operationPtr, columnsPtr, tablePtr, conditionPtr)
+	sqlQuery := fmt.Sprintf("%s %s %s %s", operationPtr, columnsPtr, tablePtr, conditionPtr)
 	fmt.Println(fmt.Sprintf("[%s]: Running Query: %s", GetFunctionName(runBenchmarks), sqlQuery))
 
 	if logPrefix == "" {
