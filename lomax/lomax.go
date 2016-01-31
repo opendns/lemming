@@ -217,7 +217,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr
 		switch tablePtr {
 		case "employees":
 			columnsPtr = fmt.Sprintf("emp_no, birth_date, first_name, last_name, gender, hire_date")
-			conditionPtr = fmt.Sprintf("%s, %s, '%s', '%s', '%s', %s", faker.Number().Number(6), faker.Date().Birthday(10, 40).Format("2006-01-02"), faker.Name().FirstName(), faker.Name().FirstName(), "F", faker.Date().Forward(0).Format("2006-01-02"))
+			conditionPtr = fmt.Sprintf("%s, %s, '%s', '%s', '%s', %s", faker.Number().Number(6), faker.Date().Birthday(10, 40).Format("2006-01-02"), strings.Replace(faker.Name().FirstName(), "'", "", -1), strings.Replace(faker.Name().LastName(), "'", "", -1), "F", faker.Date().Forward(0).Format("2006-01-02"))
 		case "dept_emp":
 			columnsPtr = fmt.Sprintf("emp_no, dept_no, from_date, to_date")
 			conditionPtr = fmt.Sprintf("%s, %s, '%s', '%s'", faker.Number().Number(6), faker.Date().Birthday(10, 40).Format("2006-01-02"), faker.Date().Forward(0).Format("2006-01-02"))
