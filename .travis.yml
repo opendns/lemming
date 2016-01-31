@@ -7,6 +7,7 @@ install:
     - go get github.com/opendns/lemming/lib/log
     - go get github.com/go-sql-driver/mysql
     - go get github.com/olekukonko/tablewriter
+    - go get github.com/enodata/faker
 
 before_script:
     - echo "USE mysql;\nUPDATE user SET password=PASSWORD('password') WHERE user='root';\nFLUSH PRIVILEGES;\n" | mysql -u root 
