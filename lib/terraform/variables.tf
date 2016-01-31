@@ -15,6 +15,12 @@ variable "user_name" {
     }
 }
 
+variable "user_key_pair" {
+    default = {
+        "syseng.simar" = "simar-macbook-opendns"
+    }
+}
+
 variable "region" {
     default = "regionOne"
 }

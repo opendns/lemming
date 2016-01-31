@@ -1,16 +1,15 @@
 #!/bin/bash
 
-# HACK: Workaround to fix mysql unknown default timezone bug: http://goo.gl/qEES1X
-/bin/sed -i -e "s/UTC/\+08\:00/" /etc/my.cnf
+# function to install packages using apt
+# usage: apt_install <packageName>
+function apt_install {
+    sudo apt-get -qq update
+    sudo apt-get -yf install $1
+}
 
-# Back up the old data directory
-mv /var/lib/mysql/data /var/lib/mysql/data-old
+# Workaround the ncurses mysql package prompt
+sudo debconf-set-selections <<< 'mysql-server mysql-server/root_password password password'
+sudo debconf-set-selections <<< 'mysql-server mysql-server/root_password_again password password'
 
-# Define the various parameters for mysqld to know
-/opt/software/mysql/scripts/mysql_install_db --datadir=/var/lib/mysql/data --basedir=/opt/software/mysql --defaults-file=/etc/my.cnf
-
-
-
-
-
-
+# Setup MySQL on the host
+apt_install mysql-server

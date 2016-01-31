@@ -14,7 +14,7 @@ resource "openstack_compute_instance_v2" "mysql" {
     image_name      =   "${var.image_name.ubuntu-trusty}"
     flavor_name     =   "${var.instance_flavor.medium}"
     region          =   "${var.region}"
-    key_pair        =   "${var.user_name.syseng.simar}"
+    key_pair        =   "${var.user_key_pair.syseng.simar}"
     security_groups =   [
         "default",
         "mysql",

@@ -9,6 +9,9 @@ go build lomax.go
 ./lomax --db="employees" --operation="SELECT" --table="employees a, salaries b" --condition="WHERE  b.salary > 100000 limit 1" --cols="a.emp_no, a.birth_date, a.first_name, a.last_name, a.gender, a.hire_date, b.salary, b.from_date, b.to_date" --user="root" --password="password" --config=openstack-generic-config.json
 
 # Insert a Random employee
+./lomax --db="employees" --operation="INSERT" --flag="IGNORE" --table="employees" --random="true" --config=openstack-generic-config.json --user="root" --password="password" --count=1
+
+# Insert a Random employee
 ./lomax --db="employees" --operation="INSERT" --flag="IGNORE" --table="employees" --cols="emp_no, birth_date, first_name, last_name, gender, hire_date" --condition="1010101, 1980-01-01, 'John', 'Doe', 'M', 2016-01-01" --config=openstack-generic-config.json --user="root" --password="password" --count=1
 
 # Update the employees with > 100,000 salary from employees table 
