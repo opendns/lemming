@@ -31,6 +31,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/enodata/faker"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/olekukonko/tablewriter"
 	"github.com/opendns/lemming/lib/log"
@@ -60,7 +61,7 @@ var (
 )
 
 // Make stuff that is common globally accessible
-var operationPtr, flagPtr, columnsPtr, dbPtr, tablePtr, conditionPtr string
+var operationPtr, flagPtr, randomPtr, columnsPtr, dbPtr, tablePtr, conditionPtr string
 var logType, logPrefix string
 var config map[string]interface{}
 var benchmarkData []string
@@ -76,6 +77,7 @@ func init() {
 	flag.StringVar(&logType, "logtype", "", "Log Prefix: Defines the output format for storing test results.")
 	flag.StringVar(&operationPtr, "operation", "", "Query to run: e.g. SELECT, INSERT..")
 	flag.StringVar(&flagPtr, "flag", "", "MySQL Query flag specifier: e.g. LOW_PRIORITY, QUICK, IGNORE..")
+	flag.StringVar(&randomPtr, "random", "", "Specify the columns for which you want to generate random data.")
 	flag.StringVar(&columnsPtr, "cols", "", "Columns to select in a query.")
 	flag.StringVar(&dbPtr, "db", "", "DB to perform queries on.")
 	flag.StringVar(&tablePtr, "table", "", "Table to use for operations.")
@@ -119,7 +121,7 @@ func BenchmarkPrepareStatement(bench *testing.B) {
 	defer db.Close()
 
 	for iter := 0; iter < bench.N*int(countPtr); iter++ {
-		rows := prepareStatement(db, operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr)
+		rows := prepareStatement(db, operationPtr, flagPtr, randomPtr, columnsPtr, tablePtr, conditionPtr)
 		if rows != nil {
 			rows.Close()
 		}
@@ -131,7 +133,7 @@ func BenchmarkProcessData(bench *testing.B) {
 	db := initializeDB()
 	defer db.Close()
 
-	rows := prepareStatement(db, operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr)
+	rows := prepareStatement(db, operationPtr, flagPtr, randomPtr, columnsPtr, tablePtr, conditionPtr)
 	if rows != nil {
 		defer rows.Close()
 		for iter := 0; iter < bench.N*int(countPtr); iter++ {
@@ -182,7 +184,7 @@ func validateInput() {
 		log.Error("Please specify a MySQL database using the --database option.")
 	} else if operationPtr == "" && testVectorConfig == "" {
 		log.Error("Please specify a MySQL operation using the --operation option or specify a test vector using --vector option.")
-	} else if columnsPtr == "" && testVectorConfig == "" {
+	} else if columnsPtr == "" && testVectorConfig == "" && randomPtr == "" {
 		if operationPtr != "UPDATE" && operationPtr != "DELETE" {
 			log.Error("Please specify columns to operate on using the --cols option or specify a test vector using the --vector option.")
 		}
@@ -210,11 +212,37 @@ func initializeDB(inputParams ...string) *sql.DB {
 	return db
 }
 
-func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, columnsPtr string, tablePtr string, conditionPtr string) *sql.Rows {
+func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr string, columnsPtr string, tablePtr string, conditionPtr string) *sql.Rows {
+	if randomPtr != "" {
+		switch tablePtr {
+		case "employees":
+			columnsPtr = fmt.Sprintf("emp_no, birth_date, first_name, last_name, gender, hire_date")
+			conditionPtr = fmt.Sprintf("%s, %s, '%s', '%s', '%s', %s", faker.Number().Number(6), faker.Date().Birthday(10, 40).Format("2006-01-02"), faker.Name().FirstName(), faker.Name().FirstName(), "F", faker.Date().Forward(0).Format("2006-01-02"))
+		case "dept_emp":
+			columnsPtr = fmt.Sprintf("emp_no, dept_no, from_date, to_date")
+			conditionPtr = fmt.Sprintf("%s, %s, '%s', '%s'", faker.Number().Number(6), faker.Date().Birthday(10, 40).Format("2006-01-02"), faker.Date().Forward(0).Format("2006-01-02"))
+		case "salaries":
+			columnsPtr = fmt.Sprintf("emp_no, salary, from_date, to_date")
+			conditionPtr = fmt.Sprintf("%s, %s, '%s', '%s'", faker.Number().Number(6), faker.Number().Number(6), faker.Date().Birthday(10, 40).Format("2006-01-02"), faker.Date().Forward(0).Format("2006-01-02"))
+		case "titles":
+			columnsPtr = fmt.Sprintf("emp_no, title, from_date, to_date")
+			conditionPtr = fmt.Sprintf("%s, %s, '%s', '%s'", faker.Number().Number(6), faker.Name().Title(), faker.Date().Birthday(10, 40).Format("2006-01-02"), faker.Date().Forward(0).Format("2006-01-02"))
+		case "dept_manager":
+			columnsPtr = fmt.Sprintf("emp_no, dept_no, from_date, to_date")
+			conditionPtr = fmt.Sprintf("%s, %s, '%s', '%s'", faker.Number().Number(6), faker.Number().Number(4), faker.Date().Birthday(10, 40).Format("2006-01-02"), faker.Date().Forward(0).Format("2006-01-02"))
+		case "departments":
+			columnsPtr = fmt.Sprintf("dept_no, dept_name")
+			conditionPtr = fmt.Sprintf("%s, %s", faker.Number().Number(4), faker.Team().Name())
+		default:
+			log.Error("[%s]: Invalid SQL table specified. Please check the --table option.", GetFunctionName(prepareStatement))
+		}
+	}
+
 	switch strings.ToUpper(operationPtr) {
 	case "SELECT":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
 		if err != nil {
+			log.Error(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		rows, err := stmtOut.Query()
@@ -226,6 +254,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, columnsPt
 	case "INSERT":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s INTO %s (%s) VALUES (%s)", operationPtr, flagPtr, tablePtr, columnsPtr, conditionPtr))
 		if err != nil {
+			log.Error(fmt.Sprintf("%s %s INTO %s (%s) VALUES (%s)", operationPtr, flagPtr, tablePtr, columnsPtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		_, err = stmtOut.Exec()
@@ -237,6 +266,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, columnsPt
 	case "DELETE":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s FROM %s WHERE %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 		if err != nil {
+			log.Error(fmt.Sprintf("%s %s FROM %s WHERE %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		_, err = stmtOut.Exec()
@@ -248,6 +278,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, columnsPt
 	case "UPDATE":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s %s SET %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 		if err != nil {
+			log.Error(fmt.Sprintf("%s %s %s SET %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		_, err = stmtOut.Exec()
@@ -410,7 +441,7 @@ func processData(rows *sql.Rows, columns string, tables string) bool {
 func runBenchmarks() {
 	fmt.Println(fmt.Sprintf("Running benchmarks, please wait..."))
 
-	sqlQuery := fmt.Sprintf("%s %s %s %s", operationPtr, columnsPtr, tablePtr, conditionPtr)
+	sqlQuery := fmt.Sprintf("%s %s %s %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr)
 	fmt.Println(fmt.Sprintf("[%s]: Running Query: %s", GetFunctionName(runBenchmarks), sqlQuery))
 
 	if logPrefix == "" {
