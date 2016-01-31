@@ -213,7 +213,7 @@ func initializeDB(inputParams ...string) *sql.DB {
 }
 
 func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr string, columnsPtr string, tablePtr string, conditionPtr string) *sql.Rows {
-	if randomPtr != "" {
+	if randomPtr == "true" {
 		switch tablePtr {
 		case "employees":
 			columnsPtr = fmt.Sprintf("emp_no, birth_date, first_name, last_name, gender, hire_date")
