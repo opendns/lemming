@@ -232,7 +232,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr
 			conditionPtr = fmt.Sprintf("%s, %s, '%s', '%s'", faker.Number().Number(6), faker.Number().Number(4), faker.Date().Birthday(10, 40).Format("2006-01-02"), faker.Date().Forward(0).Format("2006-01-02"))
 		case "departments":
 			columnsPtr = fmt.Sprintf("dept_no, dept_name")
-			conditionPtr = fmt.Sprintf("%s, %s", faker.Number().Number(4), faker.Team().Name())
+			conditionPtr = fmt.Sprintf("%s, '%s'", faker.Number().Number(4), strings.Replace(faker.Team().Name(), "'", "", -1))
 		default:
 			log.Error("[%s]: Invalid SQL table specified. Please check the --table option.", GetFunctionName(prepareStatement))
 		}
