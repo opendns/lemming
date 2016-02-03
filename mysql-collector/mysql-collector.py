@@ -6,11 +6,11 @@ import sys
 import pwd
 import grp
 import json
+import argparse
 import socket
 import MySQLdb as mdb
 from time import time, sleep
 from pprint import pprint
-from optparse import OptionParser
 
 DEBUG = False
 
@@ -55,70 +55,81 @@ class QPSData():
         return data
 
 
-def optparse():
+def parseArgs():
     global DEBUG
-    parser = OptionParser()
+    parser = argparse.ArgumentParser(description="mysql-collector is a tool for MySQL stats collection.")
 
-    parser.add_option("-c",
-                      "--critical-threshold",
-                      type="int",
-                      dest="critical_threshold",
-                      metavar="500",
-                      default=500,
-                      help="Threads threshold for Nagios level CRITICAL.")
-    parser.add_option("-d",
-                      "--debug",
-                      dest="debug",
-                      default=False,
-                      action="store_true",
-                      help="Enables Debug mode.")
-    parser.add_option("-f",
-                      "--threads-file",
-                      dest="threads_file",
-                      default="/var/log/mysql-processlist.log",
-                      action="store_true",
-                      help="Store metric in graphite.")
-    parser.add_option("-w",
-                      "--warning-threshold",
-                      type="int",
-                      dest="warning_threshold",
-                      metavar="400",
-                      default=400,
-                      help="Threads threshold for Nagios level WARNING")
-    parser.add_option("-t",
-                      "--threads-logger",
-                      dest="threads_logger",
-                      default=False,
-                      action="store_true",
-                      help=("Enable SHOW PROCESSLIST if CRITICAL threshold"
-                            "is hit."))
-    parser.add_option("-S",
-                      "--graphite-server",
-                      type="string",
-                      dest="graphite_server",
-                      metavar="graphite_server",
-                      default="127.0.0.1",
-                      help="Graphite hostname for storing metrics.")
-    parser.add_option("-G",
-                      "--graphite",
-                      dest="graphite",
-                      default=False,
-                      action="store_true",
-                      help="Store metric in graphite.")
-    parser.add_option("-I",
-                      "--ignore-lock",
-                      dest="ignore_lock",
-                      default=False,
-                      action="store_true",
-                      help=("Ignore the lock file created by this script. "
-                            "Don't use this unless testing, because you risk"
-                            "breaking replication and dropping tables"
-                            "randomly."))
+    parser.add_argument("-u",
+                        "--user",
+                        dest="user",
+                        metavar="user",
+                        default="user",
+                        help="The MySQL username to login as.")
+    parser.add_argument("-p",
+                        "--password",
+                        dest="password",
+                        metavar="password",
+                        default="password",
+                        help="The MySQL password to login as.")
+    parser.add_argument("-c",
+                        "--critical-threshold",
+                        type=int,
+                        dest="critical_threshold",
+                        metavar="500",
+                        default=500,
+                        help="Threads threshold for Nagios level CRITICAL.")
+    parser.add_argument("-d",
+                        "--debug",
+                        dest="debug",
+                        default=False,
+                        action="store_true",
+                        help="Enables Debug mode.")
+    parser.add_argument("-f",
+                        "--threads-file",
+                        dest="threads_file",
+                        default="/var/log/mysql-processlist.log",
+                        action="store_true",
+                        help="Store metric in graphite.")
+    parser.add_argument("-w",
+                        "--warning-threshold",
+                        type=int,
+                        dest="warning_threshold",
+                        metavar="400",
+                        default=400,
+                        help="Threads threshold for Nagios level WARNING")
+    parser.add_argument("-t",
+                        "--threads-logger",
+                        dest="threads_logger",
+                        default=False,
+                        action="store_true",
+                        help=("Enable SHOW PROCESSLIST if CRITICAL threshold"
+                              "is hit."))
+    parser.add_argument("-S",
+                        "--graphite-server",
+                        dest="graphite_server",
+                        metavar="graphite_server",
+                        default="127.0.0.1",
+                        help="Graphite hostname for storing metrics.")
+    parser.add_argument("-G",
+                        "--graphite",
+                        dest="graphite",
+                        default=False,
+                        action="store_true",
+                        help="Store metric in graphite.")
+    parser.add_argument("-I",
+                        "--ignore-lock",
+                        dest="ignore_lock",
+                        default=False,
+                        action="store_true",
+                        help=("Ignore the lock file created by this script. "
+                              "Don't use this unless testing, because you risk"
+                              "breaking replication and dropping tables"
+                              "randomly."))
 
-    opts, args = parser.parse_args()
-    if opts.debug:
+    args = parser.parse_args()
+    if args.debug:
         DEBUG = True
-    return (opts, args)
+    return args
 
 def lock_file(pid_file='/var/run/mysql-collector.pid'):
     old_pid = None
@@ -135,15 +146,13 @@ def lock_file(pid_file='/var/run/mysql-collector.pid'):
         file.write("%d\n" % (this_pid))
 
 def mysql_query(sql,
-                host='127.0.0.1',
-                user='user',
-                password='password',
+                args,
                 dict_cursor=False):
     result = None
     conn = None
     cur = None
     try:
-        conn = mdb.connect(host, user, password)
+        conn = mdb.connect(args.graphite_server, args.user, args.password)
         if dict_cursor:
             cur = conn.cursor(cursorclass=mdb.cursors.DictCursor)
         else:
@@ -233,21 +242,21 @@ def store_metric(key, value, graphite_server):
             sock.close()
     #print message
 
-def threads_sleeping():
+def threads_sleeping(args):
     threads = 0
     sql = "SHOW FULL PROCESSLIST"
-    results = mysql_query(sql, dict_cursor=True)
+    results = mysql_query(sql, args, dict_cursor=True)
     for row in results:
         if 'Command' in row:
             if row['Command'] in 'Sleep':
                 threads += 1
     return threads
 
-def graphite_run(opts, args):
+def graphite_run(args):
     qps_data = QPSData()
 
     # Verify that the script is already not running
-    if not opts.ignore_lock and not DEBUG:
+    if not args.ignore_lock and not DEBUG:
         lock_file()
 
     # Run forever
@@ -270,25 +279,25 @@ def graphite_run(opts, args):
         bp_results = mysql_query(sql)
         for key, value in bp_results:
             if type(value) == 'int':
-                store_metric(key, int(value), opts.graphite_server)
+                store_metric(key, int(value), args.graphite_server)
 
         # Grab connections from local MySQL server
         sql = "SHOW STATUS"
         tc_results = mysql_query(sql)
         for key, value in tc_results:
             if key in collection_group:
-                store_metric(key, value, opts.graphite_server)
+                store_metric(key, value, args.graphite_server)
             if key == 'Threads_connected':
                 connections = int(value)
 
         # Grab the number of threads that are asleep
         threads_asleep = threads_sleeping()
-        store_metric('Threads_sleeping', threads_asleep, opts.graphite_server)
+        store_metric('Threads_sleeping', threads_asleep, args.graphite_server)
 
         # Now write QPS to graphite
         qps_dict = get_qps(qps_data)
         for item in qps_dict:
-            store_metric(item, qps_dict[item], opts.graphite_server)
+            store_metric(item, qps_dict[item], args.graphite_server)
 
         # Grab slave status
         try:
@@ -298,7 +307,7 @@ def graphite_run(opts, args):
                 sbm = int(match.group(1))
             else:
                 sbm = 0
-            store_metric('Seconds_Behind_Master', sbm, opts.graphite_server)
+            store_metric('Seconds_Behind_Master', sbm, args.graphite_server)
         except:
             pass
         if DEBUG:
@@ -306,30 +315,30 @@ def graphite_run(opts, args):
         sleep(10)
 
 def main(options):
-    opts, args = options
+    args = options
     # If the graphite option is passed in we should skip the Nagios stuff and
     # vise versa.
-    if opts.graphite:
-        graphite_run(opts, args)
+    if args.graphite:
+        graphite_run(args)
         # Since graphite run is a while true loop we should never get here.
         sys.exit(1)
 
     # BELOW IS FOR NAGIOS ONLY
     # Grab number of running threads for Nagios alarm
-    results = mysql_query("SHOW STATUS")
+    results = mysql_query("SHOW STATUS", args)
     for key, value in results:
         if key == 'Threads_connected':
             connections = int(value)
 
-    threads_asleep = threads_sleeping()
-    store_metric('Threads_sleeping', threads_asleep, opts.graphite_server)
+    threads_asleep = threads_sleeping(args)
+    store_metric('Threads_sleeping', threads_asleep, args.graphite_server)
     print("Threads_connected: %d, Threads_sleeping: %d" % (connections,
                                                            threads_asleep))
-    if (connections < opts.critical_threshold and
-        connections >= opts.warning_threshold):
+    if (connections < args.critical_threshold and
+        connections >= args.warning_threshold):
         # NAGIOS: WARNING
         return 1
-    elif connections >= opts.critical_threshold:
+    elif connections >= args.critical_threshold:
         # NAGIOS: CRITICAL
         return 2
     else:
@@ -341,5 +350,5 @@ def main(options):
     return 3
 
 if __name__ == "__main__":
-    val = main(optparse())
+    val = main(parseArgs())
     sys.exit(val)
