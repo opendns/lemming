@@ -9,6 +9,7 @@ import json
 import argparse
 import socket
 import MySQLdb as mdb
+import ConfigParser
 from time import time, sleep
 from pprint import pprint
 
@@ -57,76 +58,95 @@ class QPSData():
 
 def parseArgs():
     global DEBUG
-    parser = argparse.ArgumentParser(description="mysql-collector is a tool for MySQL stats collection.")
+    conf_parser = argparse.ArgumentParser(
+            description="mysql-collector is a tool for MySQL stats collection.",
+            add_help=False)
+
+    defaults = {}
+    conf_parser.add_argument("-z",
+                             "--config",
+                             dest="config",
+                             metavar="config",
+                             help="ini configuration file for mysql-collector.")
+    args, remaining_argv = conf_parser.parse_known_args()
+
+    if args.config:
+        configParser = ConfigParser.SafeConfigParser()
+        configParser.read([args.config])
+        defaults.update(dict(configParser.items("Defaults")))
+    else:
+        if len(remaining_argv) == 0:
+            conf_parser.print_help()
+            sys.exit(1)
+
+    parser = argparse.ArgumentParser(
+            parents=[conf_parser]
+            )
+    parser.set_defaults(**defaults)
 
     parser.add_argument("-u",
                         "--user",
                         dest="user",
                         metavar="user",
-                        default="user",
+                        required=True,
                         help="The MySQL username to login as.")
     parser.add_argument("-p",
                         "--password",
                         dest="password",
                         metavar="password",
-                        default="password",
+                        required=True,
                         help="The MySQL password to login as.")
+    parser.add_argument("-d",
+                        "--debug",
+                        dest="debug",
+                        action="store_true",
+                        help="Enables Debug mode.")
     parser.add_argument("-c",
                         "--critical-threshold",
                         type=int,
                         dest="critical_threshold",
                         metavar="500",
-                        default=500,
+                        required=True,
                         help="Threads threshold for Nagios level CRITICAL.")
-    parser.add_argument("-d",
-                        "--debug",
-                        dest="debug",
-                        default=False,
-                        action="store_true",
-                        help="Enables Debug mode.")
-    parser.add_argument("-f",
-                        "--threads-file",
-                        dest="threads_file",
-                        default="/var/log/mysql-processlist.log",
-                        action="store_true",
-                        help="Store metric in graphite.")
     parser.add_argument("-w",
                         "--warning-threshold",
                         type=int,
                         dest="warning_threshold",
                         metavar="400",
-                        default=400,
+                        required=True,
                         help="Threads threshold for Nagios level WARNING")
+    parser.add_argument("-f",
+                        "--threads-file",
+                        dest="threads_file",
+                        action="store_true",
+                        help="Store metric in graphite.")
     parser.add_argument("-t",
                         "--threads-logger",
                         dest="threads_logger",
-                        default=False,
                         action="store_true",
                         help=("Enable SHOW PROCESSLIST if CRITICAL threshold"
                               "is hit."))
+    parser.add_argument("-G",
+                        "--graphite",
+                        dest="graphite",
+                        action="store_true",
+                        help="Store metric in graphite.")
     parser.add_argument("-S",
                         "--graphite-server",
                         dest="graphite_server",
                         metavar="graphite_server",
-                        default="127.0.0.1",
+                        required=True,
                         help="Graphite hostname for storing metrics.")
-    parser.add_argument("-G",
-                        "--graphite",
-                        dest="graphite",
-                        default=False,
-                        action="store_true",
-                        help="Store metric in graphite.")
     parser.add_argument("-I",
                         "--ignore-lock",
                         dest="ignore_lock",
-                        default=False,
                         action="store_true",
                         help=("Ignore the lock file created by this script. "
                               "Don't use this unless testing, because you risk"
                               "breaking replication and dropping tables"
                               "randomly."))
 
-    args = parser.parse_args()
+    args = parser.parse_args(remaining_argv)
     if args.debug:
         DEBUG = True
     return args
