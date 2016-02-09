@@ -1,5 +1,7 @@
 {
   "name": "openstack",
+  "hostname": "localhost",
+  "port": "3306",
   "tier": "generic",
   "prod": false,
   "db" : "employees",

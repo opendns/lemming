@@ -10,6 +10,8 @@ func TestTravis(t *testing.T) {
 	configParse("openstack-generic-config.json", "openstack-generic-tests.json")
 	cases := []struct {
 		testTableInput     string
+		testHostNameInput  string
+		testPortInput      string
 		testDBInput        string
 		testOperationInput string
 		testFlagInput      string
@@ -18,10 +20,10 @@ func TestTravis(t *testing.T) {
 		testConditionInput string
 		outputWanted       bool
 	}{
-		{"employees", "employees", "SELECT", " ", "false", "*", "LIMIT 2", true},
+		{"employees", "localhost", "3306", "employees", "SELECT", " ", "false", "*", "LIMIT 2", true},
 	}
 	for _, c := range cases {
-		db := initializeDB(USER, PASSWORD, c.testDBInput)
+		db := initializeDB(USER, PASSWORD, c.testHostNameInput, c.testPortInput, c.testDBInput)
 		returnedRows := prepareStatement(db, c.testOperationInput, c.testFlagInput, c.testRandomInput, c.testColumnsInput, c.testTableInput, c.testConditionInput)
 		returnedOutput := processData(returnedRows, c.testColumnsInput, c.testTableInput)
 		if returnedOutput != c.outputWanted {
