@@ -61,7 +61,7 @@ var (
 )
 
 // Make stuff that is common globally accessible
-var operationPtr, flagPtr, randomPtr, columnsPtr, dbPtr, tablePtr, conditionPtr string
+var operationPtr, flagPtr, randomPtr, columnsPtr, hostNamePtr, portPtr, dbPtr, tablePtr, conditionPtr string
 var logType, logPrefix string
 var config map[string]interface{}
 var benchmarkData []string
@@ -79,6 +79,8 @@ func init() {
 	flag.StringVar(&flagPtr, "flag", "", "MySQL Query flag specifier: e.g. LOW_PRIORITY, QUICK, IGNORE..")
 	flag.StringVar(&randomPtr, "random", "", "Specify the columns for which you want to generate random data.")
 	flag.StringVar(&columnsPtr, "cols", "", "Columns to select in a query.")
+	flag.StringVar(&hostNamePtr, "hostname", "", "Hostname of the server to connect to.")
+	flag.StringVar(&portPtr, "port", "", "Port number of the host to connec to.")
 	flag.StringVar(&dbPtr, "db", "", "DB to perform queries on.")
 	flag.StringVar(&tablePtr, "table", "", "Table to use for operations.")
 	flag.StringVar(&conditionPtr, "condition", "", "Any conditions to enforce on query.")
@@ -93,6 +95,8 @@ func setPtrs() {
 		operationPtr = config["action"].(string)
 		flagPtr = config["flag"].(string)
 		columnsPtr = config["columns"].(string)
+		hostNamePtr = config["test_hostname"].(string)
+		portPtr = config["test_port"].(string)
 		dbPtr = config["test_db"].(string)
 		tablePtr = config["test_table"].(string)
 		conditionPtr = config["condition"].(string)
@@ -180,6 +184,10 @@ func configParse(inputFile ...string) {
 func validateInput() {
 	if tablePtr == "" && testVectorConfig == "" {
 		log.Error("Please specify a MySQL table using the --table option.")
+	} else if hostNamePtr == "" && testVectorConfig == "" {
+		log.Error("Please specify a hostname using the --hostname option.")
+	} else if portPtr == "" && testVectorConfig == "" {
+		log.Error("Please specify the port number using the --port option.")
 	} else if dbPtr == "" && testVectorConfig == "" {
 		log.Error("Please specify a MySQL database using the --database option.")
 	} else if operationPtr == "" && testVectorConfig == "" {
@@ -198,14 +206,14 @@ func validateInput() {
 func initializeDB(inputParams ...string) *sql.DB {
 	// lomax_test.go uses custom command function name for testing purposes only
 	if len(inputParams) != 0 {
-		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", inputParams[0], inputParams[1], inputParams[2]))
+		db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", inputParams[0], inputParams[1], inputParams[2], inputParams[3], inputParams[4]))
 		if err != nil {
 			log.Error(err.Error())
 		}
 		return db
 	}
 
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@/%s", USER, PASSWORD, dbPtr))
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", USER, PASSWORD, hostNamePtr, portPtr, dbPtr))
 	if err != nil {
 		log.Error(err.Error())
 	}
