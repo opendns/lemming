@@ -250,7 +250,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr
 	case "SELECT":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
 		if err != nil {
-			//log.Error(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
+			log.Error(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		rows, err := stmtOut.Query()
