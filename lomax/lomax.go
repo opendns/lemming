@@ -253,7 +253,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr
 	case "SELECT":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
 		if err != nil {
-			log.Error(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
+			log.Warning(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		rows, err := stmtOut.Query()
@@ -265,7 +265,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr
 	case "INSERT":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s INTO %s (%s) VALUES (%s)", operationPtr, flagPtr, tablePtr, columnsPtr, conditionPtr))
 		if err != nil {
-			log.Error(fmt.Sprintf("%s %s INTO %s (%s) VALUES (%s)", operationPtr, flagPtr, tablePtr, columnsPtr, conditionPtr))
+			log.Warning(fmt.Sprintf("%s %s INTO %s (%s) VALUES (%s)", operationPtr, flagPtr, tablePtr, columnsPtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		_, err = stmtOut.Exec()
@@ -277,7 +277,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr
 	case "DELETE":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s FROM %s WHERE %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 		if err != nil {
-			log.Error(fmt.Sprintf("%s %s FROM %s WHERE %s", operationPtr, flagPtr, tablePtr, conditionPtr))
+			log.Warning(fmt.Sprintf("%s %s FROM %s WHERE %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		_, err = stmtOut.Exec()
@@ -289,7 +289,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr
 	case "UPDATE":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s %s SET %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 		if err != nil {
-			log.Error(fmt.Sprintf("%s %s %s SET %s", operationPtr, flagPtr, tablePtr, conditionPtr))
+			log.Warning(fmt.Sprintf("%s %s %s SET %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		_, err = stmtOut.Exec()
