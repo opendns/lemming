@@ -6,5 +6,5 @@
   "prod": false,
   "db" : "employees",
   "user": "root",
-  "pass": "password"
+  "password": "password"
 }

@@ -91,18 +91,24 @@ func init() {
 
 func setPtrs() {
 	configParse()
-	if jsonConfig != "" && testVectorConfig != "" {
+	if jsonConfig != "" {
+		USER = config["user"].(string)
+		PASSWORD = config["password"].(string)
+		hostNamePtr = config["hostname"].(string)
+		portPtr = config["port"].(string)
+		dbPtr = config["db"].(string)
+	}
+
+	if testVectorConfig != "" {
+		USER = config["user"].(string)
+		PASSWORD = config["password"].(string)
 		operationPtr = config["action"].(string)
 		flagPtr = config["flag"].(string)
 		columnsPtr = config["columns"].(string)
-		hostNamePtr = config["test_hostname"].(string)
-		portPtr = config["test_port"].(string)
-		dbPtr = config["test_db"].(string)
-		tablePtr = config["test_table"].(string)
+		dbPtr = config["db"].(string)
+		tablePtr = config["table"].(string)
 		conditionPtr = config["condition"].(string)
 		countPtr = config["count"].(float64)
-		USER = config["user"].(string)
-		PASSWORD = config["pass"].(string)
 	}
 }
 
@@ -153,15 +159,12 @@ func configParse(inputFile ...string) {
 		if err != nil {
 			log.Error(fmt.Sprintf("File IO Error: %s\n", err.Error()))
 		}
-		// Only JSON files are supported through the go test interface.
-		fileTestConfig, errTestConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/json/%s", inputFile[1]))
-		if errTestConfig != nil {
-			log.Error(fmt.Sprintf("Test config File IO Error: %s\n", err.Error()))
+
+		if err := json.Unmarshal(file, &config); err != nil {
+			log.Error(err.Error())
 		}
-		json.Unmarshal(file, &config)
-		json.Unmarshal(fileTestConfig, &config)
 		USER = config["user"].(string)
-		PASSWORD = config["pass"].(string)
+		PASSWORD = config["password"].(string)
 	} else {
 		if jsonConfig != "" {
 			file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", jsonConfig))
@@ -250,7 +253,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr
 	case "SELECT":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
 		if err != nil {
-			log.Error(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
+			log.Warning(fmt.Sprintf("%s %s %s FROM %s %s", operationPtr, flagPtr, columnsPtr, tablePtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		rows, err := stmtOut.Query()
@@ -262,7 +265,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr
 	case "INSERT":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s INTO %s (%s) VALUES (%s)", operationPtr, flagPtr, tablePtr, columnsPtr, conditionPtr))
 		if err != nil {
-			log.Error(fmt.Sprintf("%s %s INTO %s (%s) VALUES (%s)", operationPtr, flagPtr, tablePtr, columnsPtr, conditionPtr))
+			log.Warning(fmt.Sprintf("%s %s INTO %s (%s) VALUES (%s)", operationPtr, flagPtr, tablePtr, columnsPtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		_, err = stmtOut.Exec()
@@ -274,7 +277,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr
 	case "DELETE":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s FROM %s WHERE %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 		if err != nil {
-			log.Error(fmt.Sprintf("%s %s FROM %s WHERE %s", operationPtr, flagPtr, tablePtr, conditionPtr))
+			log.Warning(fmt.Sprintf("%s %s FROM %s WHERE %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		_, err = stmtOut.Exec()
@@ -286,7 +289,7 @@ func prepareStatement(db *sql.DB, operationPtr string, flagPtr string, randomPtr
 	case "UPDATE":
 		stmtOut, err := db.Prepare(fmt.Sprintf("%s %s %s SET %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 		if err != nil {
-			log.Error(fmt.Sprintf("%s %s %s SET %s", operationPtr, flagPtr, tablePtr, conditionPtr))
+			log.Warning(fmt.Sprintf("%s %s %s SET %s", operationPtr, flagPtr, tablePtr, conditionPtr))
 			log.Error(err.Error())
 		}
 		_, err = stmtOut.Exec()
