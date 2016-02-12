@@ -1,6 +1,6 @@
 {
   "name": "openstack",
-  "hostname": "localhost"
+  "hostname": "localhost",
   "port": "3306",
   "tier": "generic",
   "prod": false,
