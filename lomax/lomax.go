@@ -159,15 +159,12 @@ func configParse(inputFile ...string) {
 		if err != nil {
 			log.Error(fmt.Sprintf("File IO Error: %s\n", err.Error()))
 		}
-		// Only JSON files are supported through the go test interface.
-		fileTestConfig, errTestConfig := ioutil.ReadFile(fmt.Sprintf("./testvectors/json/%s", inputFile[1]))
-		if errTestConfig != nil {
-			log.Error(fmt.Sprintf("Test config File IO Error: %s\n", err.Error()))
+
+		if err := json.Unmarshal(file, &config); err != nil {
+			log.Error(err.Error())
 		}
-		json.Unmarshal(file, &config)
-		json.Unmarshal(fileTestConfig, &config)
 		USER = config["user"].(string)
-		PASSWORD = config["pass"].(string)
+		PASSWORD = config["password"].(string)
 	} else {
 		if jsonConfig != "" {
 			file, err := ioutil.ReadFile(fmt.Sprintf("./lib/%s", jsonConfig))
