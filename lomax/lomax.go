@@ -91,18 +91,24 @@ func init() {
 
 func setPtrs() {
 	configParse()
-	if jsonConfig != "" && testVectorConfig != "" {
+	if jsonConfig != "" {
+		USER = config["user"].(string)
+		PASSWORD = config["password"].(string)
+		hostNamePtr = config["hostname"].(string)
+		portPtr = config["port"].(string)
+		dbPtr = config["db"].(string)
+	}
+
+	if testVectorConfig != "" {
+		USER = config["user"].(string)
+		PASSWORD = config["password"].(string)
 		operationPtr = config["action"].(string)
 		flagPtr = config["flag"].(string)
 		columnsPtr = config["columns"].(string)
-		hostNamePtr = config["test_hostname"].(string)
-		portPtr = config["test_port"].(string)
-		dbPtr = config["test_db"].(string)
-		tablePtr = config["test_table"].(string)
+		dbPtr = config["db"].(string)
+		tablePtr = config["table"].(string)
 		conditionPtr = config["condition"].(string)
 		countPtr = config["count"].(float64)
-		USER = config["user"].(string)
-		PASSWORD = config["pass"].(string)
 	}
 }
 
