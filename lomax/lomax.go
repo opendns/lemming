@@ -66,7 +66,7 @@ var logType, logPrefix string
 var config map[string]interface{}
 var benchmarkData []string
 var benchBuffer [][]string
-var countPtr float64
+var threadPtr, countPtr float64
 
 var jsonConfig, testVectorConfig string
 
@@ -76,6 +76,7 @@ func init() {
 	flag.StringVar(&logPrefix, "logprefix", "", "Log Prefix: Defines the prefix for output result file.")
 	flag.StringVar(&logType, "logtype", "", "Log Prefix: Defines the output format for storing test results.")
 	flag.StringVar(&operationPtr, "operation", "", "Query to run: e.g. SELECT, INSERT..")
+	flag.Float64Var(&threadPtr, "threads", 1, "Number of go coroutines to run.")
 	flag.StringVar(&flagPtr, "flag", "", "MySQL Query flag specifier: e.g. LOW_PRIORITY, QUICK, IGNORE..")
 	flag.StringVar(&randomPtr, "random", "", "Specify the columns for which you want to generate random data.")
 	flag.StringVar(&columnsPtr, "cols", "", "Columns to select in a query.")
@@ -97,6 +98,7 @@ func setPtrs() {
 		hostNamePtr = config["hostname"].(string)
 		portPtr = config["port"].(string)
 		dbPtr = config["db"].(string)
+		threadPtr = config["threads"].(float64)
 	}
 
 	if testVectorConfig != "" {
@@ -465,9 +467,9 @@ func runBenchmarks() {
 	br = testing.Benchmark(BenchmarkPrepareStatement)
 	collectData(br, BenchmarkPrepareStatement)
 
-	br = testing.Benchmark(BenchmarkProcessData)
-	collectData(br, BenchmarkProcessData)
-
+	for i := 0; i < int(threadPtr); i++ {
+		go collectData(testing.Benchmark(BenchmarkProcessData), BenchmarkProcessData)
+	}
 	printData()
 }
 
