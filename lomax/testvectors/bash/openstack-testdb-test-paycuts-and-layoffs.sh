@@ -18,13 +18,13 @@ go build lomax.go
 ./lomax --db="employees" --operation="UPDATE" --table="salaries" --condition="salary=90000 WHERE salary > 100000 limit 1" --cols=" " --config=openstack-generic-config.json --user="root" --password="password" --count=1
 
 # Delete the employees with 100,000 salary from dept_emp table
-./lomax --db="employees" --operation="DELETE" --table="dept_emp" --condition="emp_no IN ( SELECT emp_no FROM ( SELECT salary FROM salaries WHERE salary > 100000) as p) limit 1" --config=openstack-generic-config.json --user="root" --password="password"
+./lomax --db="employees" --operation="DELETE" --table="dept_emp" --condition="emp_no IN ( SELECT emp_no FROM ( SELECT salary FROM salaries WHERE salary > 100000) as p)" --config=openstack-generic-config.json --user="root" --password="password"
 
 # Delete the employees with 100,000 salary from dept_manager table
-./lomax --db="employees" --operation="DELETE" --table="dept_manager" --condition="emp_no IN ( SELECT emp_no FROM ( SELECT salary FROM salaries WHERE salary > 100000) as p) limit 1" --config=openstack-generic-config.json --user="root" --password="password"
+./lomax --db="employees" --operation="DELETE" --table="dept_manager" --condition="emp_no IN ( SELECT emp_no FROM ( SELECT salary FROM salaries WHERE salary > 100000) as p)" --config=openstack-generic-config.json --user="root" --password="password"
 
 # Delete the employees with 100,000 salary from titles table
-./lomax --db="employees" --operation="DELETE" --table="titles" --condition="emp_no IN ( SELECT emp_no FROM ( SELECT salary FROM salaries WHERE salary > 100000) as p) limit 1" --config=openstack-generic-config.json --user="root" --password="password"
+./lomax --db="employees" --operation="DELETE" --table="titles" --condition="emp_no IN ( SELECT emp_no FROM ( SELECT salary FROM salaries WHERE salary > 100000) as p)" --config=openstack-generic-config.json --user="root" --password="password"
 
 # Delete the employees with 100,000 salary from salary table
-./lomax --db="employees" --operation="DELETE" --table="salaries" --condition="salary > 100000 limit 1" --config=openstack-generic-config.json --user="root" --password="password"
+./lomax --db="employees" --operation="DELETE" --table="salaries" --condition="salary > 100000" --config=openstack-generic-config.json --user="root" --password="password"
