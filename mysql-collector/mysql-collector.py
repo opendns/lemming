@@ -16,14 +16,17 @@ from pprint import pprint
 DEBUG = False
 
 class QPSData():
-    def __init__(self, file_path='/var/tmp/mysql-collector.qps.txt'):
+    def __init__(self, file_path='/var/tmp/mysql-collector.qps.txt', hostname_override=False):
         self.unixtime  = time()
         self.delete    = 0
         self.insert    = 0
         self.update    = 0
         self.select    = 0
         self.total_qps = 0
-        self.file_path = file_path
+        if hostname.override:
+            self.file_path = "%s_%s" % (file_path, hostname_override)
+        else:
+            self.file_path = file_path
 
         # Grab UID and PID so we can lock down the stats file.
         self.uid  = pwd.getpwnam("root").pw_uid
@@ -32,10 +35,10 @@ class QPSData():
         # Check to see if the data file exists. If it does we should read it and
         # load the data into this class object, otherwise we should create a
         # blank file that contains the 0s above.
-        if os.path.exists(file_path):
+        if os.path.exists(self.file_path):
             os.chown(self.file_path, self.uid, self.gid)    # Set to root owner
             os.chmod(self.file_path, 384)                   # 0600 in octal
-            self.__dict__ = json.loads(self.__parse_file__(file_path))
+            self.__dict__ = json.loads(self.__parse_file__(self.file_path))
         else:
             self.update_file()
 
@@ -120,6 +123,27 @@ def parseArgs():
                         dest="threads_file",
                         action="store_true",
                         help="Store metric in graphite.")
+    parser.add_argument("-m",
+                        "--mysql-host",
+                        type="string",
+                        dest="host",
+                        metavar="127.0.0.1",
+                        default="127.0.0.1",
+                        help="MySQL Host to query")
+    parser.add_argument("-p",
+                        "--mysql-password",
+                        type="string",
+                        dest="password",
+                        metavar="MySQL password",
+                        default="ENV_PASSWORD",
+                        help="MySQL Password")
+    parser.add_argument("-s",
+                        "--mysql-socket",
+                        type="string",
+                        dest="socket",
+                        metavar="/var/run/mysqld/mysqld.sock",
+                        default="",
+                        help="Path to MySQL socket")
     parser.add_argument("-t",
                         "--threads-logger",
                         dest="threads_logger",
@@ -137,6 +161,24 @@ def parseArgs():
                         metavar="graphite_server",
                         required=True,
                         help="Graphite hostname for storing metrics.")
+    parser.add_argument("-o",
+                        "--graphite-datapath-hostname-override",
+                        dest="hostname_override",
+                        default=False,
+                        type="string",
+                        help="Store Graphite data at this data path rather than the default. \
+                              Example:  if run on host testhost.testdomain.com, the Graphite \
+                              default data path is 'testhost' (based on the hostname).  \
+                              If you provide the argument '-o testhost.001', then it will be stored \
+                              instead at the Graphite data path 'testhost.001'.")
+    parser.add_argument("-u",
+                        "--mysql-user",
+                        type="string",
+                        dest="user",
+                        metavar="test",
+                        default="test",
+                        required=True,
+                        help="MySQL User")
     parser.add_argument("-I",
                         "--ignore-lock",
                         dest="ignore_lock",
@@ -172,7 +214,10 @@ def mysql_query(sql,
     conn = None
     cur = None
     try:
-        conn = mdb.connect(args.graphite_server, args.user, args.password)
+        if len(args.socket) > 1:
+            conn = mdb.connect(unix_socket=args.socket, user=args.user, passwd=args.password)
+        else:
+            conn = mdb.connect(host=args.host, user=args.user, passwd=args.password)
         if dict_cursor:
             cur = conn.cursor(cursorclass=mdb.cursors.DictCursor)
         else:
@@ -240,7 +285,7 @@ def get_qps(qps_data):
     qps_data.update_file()
     return calculated_data
 
-def store_metric(key, value, graphite_server):
+def store_metric(key, value, graphite_server, hostname_override):
     # Debug assumes we do not have access to the Graphite cluster.
     if not DEBUG:
         hostname = os.uname()[1]
@@ -256,6 +301,14 @@ def store_metric(key, value, graphite_server):
                                            key,
                                            value,
                                            int(time())))
+    if hostname_override:
+        data_path = hostname_override
+    else:
+        data_path = "%s.%s" % (hostname_split[1], hostname_split[0])
+    message = ("mysql.%s.%s %s %d\n" % (data_path,
+                                     key,
+                                     value,
+                                     int(time())))
     if not DEBUG:
         sock.sendall(message)
         if sock:
@@ -273,7 +326,7 @@ def threads_sleeping(args):
     return threads
 
 def graphite_run(args):
-    qps_data = QPSData()
+    qps_data = QPSData(hostname_override=args.hostname_override)
 
     # Verify that the script is already not running
     if not args.ignore_lock and not DEBUG:
@@ -299,25 +352,25 @@ def graphite_run(args):
         bp_results = mysql_query(sql)
         for key, value in bp_results:
             if type(value) == 'int':
-                store_metric(key, int(value), args.graphite_server)
+                store_metric(key, int(value), args.graphite_server, args.hostname_override)
 
         # Grab connections from local MySQL server
         sql = "SHOW STATUS"
         tc_results = mysql_query(sql)
         for key, value in tc_results:
             if key in collection_group:
-                store_metric(key, value, args.graphite_server)
+                store_metric(key, value, args.graphite_server, args.hostname_override)
             if key == 'Threads_connected':
                 connections = int(value)
 
         # Grab the number of threads that are asleep
         threads_asleep = threads_sleeping()
-        store_metric('Threads_sleeping', threads_asleep, args.graphite_server)
+        store_metric('Threads_sleeping', threads_asleep, args.graphite_server, args.hostname_override)
 
         # Now write QPS to graphite
         qps_dict = get_qps(qps_data)
         for item in qps_dict:
-            store_metric(item, qps_dict[item], args.graphite_server)
+            store_metric(item, qps_dict[item], args.graphite_server, args.hostname_override)
 
         # Grab slave status
         try:
@@ -327,7 +380,7 @@ def graphite_run(args):
                 sbm = int(match.group(1))
             else:
                 sbm = 0
-            store_metric('Seconds_Behind_Master', sbm, args.graphite_server)
+            store_metric('Seconds_Behind_Master', sbm, args.graphite_server, args.hostname_override)
         except:
             pass
         if DEBUG:
@@ -351,7 +404,7 @@ def main(options):
             connections = int(value)
 
     threads_asleep = threads_sleeping(args)
-    store_metric('Threads_sleeping', threads_asleep, args.graphite_server)
+    store_metric('Threads_sleeping', threads_asleep, args.graphite_server, args.hostname_override)
     print("Threads_connected: %d, Threads_sleeping: %d" % (connections,
                                                            threads_asleep))
     if (connections < args.critical_threshold and
