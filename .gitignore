@@ -29,3 +29,6 @@ _testmain.go
 
 # Terraform
 *.tfstate*
+
+# macOS junk
+*.DS_Store
