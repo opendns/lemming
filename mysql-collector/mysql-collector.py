@@ -193,7 +193,11 @@ def parseArgs():
         DEBUG = True
     return args
 
-def lock_file(pid_file='/var/run/mysql-collector.pid'):
+def lock_file(hostname_override=False):
+    if hostname_override:
+        pid_file = "/var/run/mysql_collector_%s.pid" % (hostname_override)
+    else:
+        pid_file = "/var/run/mysql_collector.pid"
     old_pid = None
     this_pid = int(os.getpid())
     if os.path.exists(pid_file):
@@ -330,7 +334,7 @@ def graphite_run(args):
 
     # Verify that the script is already not running
     if not args.ignore_lock and not DEBUG:
-        lock_file()
+        lock_file(hostname_override=args.hostname_override)
 
     # Run forever
     while True:
